@@ -93,6 +93,70 @@ static uint32_t render_status_line_text(cairo_t *cairo,
 	return output->height;
 }
 
+struct badge_t {
+	char const* text;
+	double r, g, b, a;
+};
+
+#define M_PI (3.1415926f)
+
+static uint32_t render_status_badge(cairo_t *cairo,
+		struct swaybar_output *output, double *x,
+		struct badge_t *badge) {
+	struct swaybar_config *config = output->bar->config;
+
+	// Calculate text size
+	int text_width, text_height;
+	get_text_size(cairo, config->font, &text_width, &text_height, NULL,
+			output->scale, config->pango_markup, "%s", badge->text);
+
+	// Draw badge
+	double margin = 2 * output->scale;
+	double padding = 4 * output->scale;
+	double badge_height = text_height * 1.1f;
+	double badge_width = text_width + 2 * padding;
+	double start_x = *x - badge_width - margin;
+	double arc_radius = 8 * output->scale;
+	double tl_corner_x = start_x + arc_radius;
+	double tl_corner_y = 0 + arc_radius;
+	double bl_corner_x = tl_corner_x;
+	double bl_corner_y = 0 + badge_height - arc_radius;
+	double br_corner_x = start_x + badge_width - arc_radius;
+	double br_corner_y = 0 + badge_height - arc_radius;
+	double tr_corner_x = start_x + badge_width - arc_radius;
+	double tr_corner_y = 0 + arc_radius;
+	// int badge_width = (int)(text_width * 1.0f);
+	cairo_set_source_rgba(cairo, badge->r, badge->g, badge->b, badge->a);
+	cairo_new_path(cairo);
+	cairo_arc(cairo, br_corner_x, br_corner_y, arc_radius, 0.0f * M_PI, 0.5f * M_PI);
+	cairo_arc(cairo, bl_corner_x, bl_corner_y, arc_radius, 0.5f * M_PI, 1.0f * M_PI);
+	cairo_arc(cairo, tl_corner_x, tl_corner_y, arc_radius, 1.0f * M_PI, 1.5f * M_PI);
+	cairo_arc(cairo, tr_corner_x, tr_corner_y, arc_radius, 1.5f * M_PI, 2.0f * M_PI);
+	cairo_fill(cairo);
+
+	// Draw text
+	double ws_vertical_padding = config->status_padding * output->scale;
+
+	uint32_t ideal_height = text_height + ws_vertical_padding * 2;
+	uint32_t ideal_surface_height = ideal_height / output->scale;
+	if (!output->bar->config->height &&
+			output->height < ideal_surface_height) {
+		return ideal_surface_height;
+	}
+
+	cairo_set_source_u32(cairo, config->colors.statusline);
+
+	*x -= badge_width;
+	uint32_t height = output->height * output->scale;
+	double text_y = height / 2.0 - text_height / 2.0;
+	cairo_move_to(cairo, *x, (int)floor(text_y));
+	pango_printf(cairo, config->font, output->scale,
+			config->pango_markup, "%s", badge->text);
+	*x -= padding + margin;
+	// return output->height;
+	return badge_height;
+}
+
 static void render_sharp_rectangle(cairo_t *cairo, uint32_t color,
 		double x, double y, double width, double height) {
 	cairo_save(cairo);
@@ -477,6 +541,59 @@ static uint32_t render_status_line_i3bar(cairo_t *cairo,
 	return max_height;
 }
 
+static uint32_t render_badge_datetime(cairo_t *cairo,
+		struct swaybar_output *output, double *x) {
+	struct badge_t b;
+	char buf[64];
+	struct tm tm;
+	time_t t = time(NULL);
+	localtime_r(&t, &tm);
+	size_t res = strftime(buf, 63, "%D %l:%M%p", &tm);
+	buf[res] = 0;
+
+	b.text = buf;
+	b.r = 1.0f;
+	b.g = 0.0f;
+	b.b = 0.0f;
+	b.a = 1.0f;
+
+	return render_status_badge(cairo, output, x, &b);
+}
+
+static uint32_t render_badges(cairo_t *cairo,
+		struct swaybar_output *output, double *x) {
+	uint32_t ret = 0;
+	uint32_t res;
+
+	res = render_badge_datetime(cairo, output, x);
+	if(res > ret) {
+		ret = res;
+	}
+
+	struct badge_t test;
+	test.text = "Test1";
+	test.r = 1.0f;
+	test.g = 0.1f;
+	test.b = 0.1f;
+	test.a = 1.0f;
+	res = render_status_badge(cairo, output, x, &test);
+	if(res > ret) {
+		ret = res;
+	}
+
+	test.text = "Test2";
+	test.r = 0.1f;
+	test.g = 1.0f;
+	test.b = 0.1f;
+	test.a = 1.0f;
+	res = render_status_badge(cairo, output, x, &test);
+	if(res > ret) {
+		ret = res;
+	}
+
+	return ret;
+}
+
 static uint32_t render_status_line(cairo_t *cairo,
 		struct swaybar_output *output, double *x) {
 	struct status_line *status = output->bar->status;
@@ -484,12 +601,14 @@ static uint32_t render_status_line(cairo_t *cairo,
 	case PROTOCOL_ERROR:
 		return render_status_line_error(cairo, output, x);
 	case PROTOCOL_TEXT:
-		return render_status_line_text(cairo, output, x);
+		return render_badges(cairo, output, x);
 	case PROTOCOL_I3BAR:
 		return render_status_line_i3bar(cairo, output, x);
 	case PROTOCOL_UNDEF:
 		return 0;
 	}
+	(void)render_status_line_text;
+
 	return 0;
 }
 
