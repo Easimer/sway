@@ -93,9 +93,17 @@ static uint32_t render_status_line_text(cairo_t *cairo,
 	return output->height;
 }
 
+struct badge_color_t {
+	double r, g, b, a;
+};
+
+#define BADGE_COLOR_SET(c, R, G, B, A) \
+	c.r = R; c.g = G; c.b = B; c.a = A;
+
 struct badge_t {
 	char const* text;
-	double r, g, b, a;
+	struct badge_color_t bg;
+	struct badge_color_t border;
 };
 
 #define M_PI (3.1415926f)
@@ -114,25 +122,36 @@ static uint32_t render_status_badge(cairo_t *cairo,
 	double margin = 2 * output->scale;
 	double padding = 4 * output->scale;
 	double badge_height = text_height * 1.1f;
+	double margin_right_x = *x;
+	double padding_right_x = margin_right_x - margin;
+	double text_x = padding_right_x - padding - text_width;
+	double padding_left_x = text_x - padding;
+	double margin_left_x = padding_left_x - margin;
 	double badge_width = text_width + 2 * padding;
-	double start_x = *x - badge_width - margin;
 	double arc_radius = 8 * output->scale;
-	double tl_corner_x = start_x + arc_radius;
+	double tl_corner_x = padding_left_x + arc_radius;
 	double tl_corner_y = 0 + arc_radius;
 	double bl_corner_x = tl_corner_x;
 	double bl_corner_y = 0 + badge_height - arc_radius;
-	double br_corner_x = start_x + badge_width - arc_radius;
+	double br_corner_x = padding_left_x + badge_width - arc_radius;
 	double br_corner_y = 0 + badge_height - arc_radius;
-	double tr_corner_x = start_x + badge_width - arc_radius;
+	double tr_corner_x = padding_left_x + badge_width - arc_radius;
 	double tr_corner_y = 0 + arc_radius;
-	// int badge_width = (int)(text_width * 1.0f);
-	cairo_set_source_rgba(cairo, badge->r, badge->g, badge->b, badge->a);
+	cairo_set_source_rgba(cairo,
+			badge->bg.r, badge->bg.g, badge->bg.b, badge->bg.a);
 	cairo_new_path(cairo);
-	cairo_arc(cairo, br_corner_x, br_corner_y, arc_radius, 0.0f * M_PI, 0.5f * M_PI);
-	cairo_arc(cairo, bl_corner_x, bl_corner_y, arc_radius, 0.5f * M_PI, 1.0f * M_PI);
-	cairo_arc(cairo, tl_corner_x, tl_corner_y, arc_radius, 1.0f * M_PI, 1.5f * M_PI);
-	cairo_arc(cairo, tr_corner_x, tr_corner_y, arc_radius, 1.5f * M_PI, 2.0f * M_PI);
-	cairo_fill(cairo);
+	cairo_arc(cairo, br_corner_x, br_corner_y, arc_radius,
+			0.0f * M_PI, 0.5f * M_PI);
+	cairo_arc(cairo, bl_corner_x, bl_corner_y, arc_radius,
+			0.5f * M_PI, 1.0f * M_PI);
+	cairo_arc(cairo, tl_corner_x, tl_corner_y, arc_radius,
+			1.0f * M_PI, 1.5f * M_PI);
+	cairo_arc(cairo, tr_corner_x, tr_corner_y, arc_radius,
+			1.5f * M_PI, 2.0f * M_PI);
+	cairo_fill_preserve(cairo);
+	cairo_set_source_rgba(cairo,
+			badge->border.r, badge->border.g, badge->border.b, badge->border.a);
+	cairo_stroke(cairo);
 
 	// Draw text
 	double ws_vertical_padding = config->status_padding * output->scale;
@@ -146,14 +165,14 @@ static uint32_t render_status_badge(cairo_t *cairo,
 
 	cairo_set_source_u32(cairo, config->colors.statusline);
 
-	*x -= badge_width;
 	uint32_t height = output->height * output->scale;
 	double text_y = height / 2.0 - text_height / 2.0;
-	cairo_move_to(cairo, *x, (int)floor(text_y));
+	cairo_move_to(cairo, text_x, (int)floor(text_y));
 	pango_printf(cairo, config->font, output->scale,
 			config->pango_markup, "%s", badge->text);
-	*x -= padding + margin;
-	// return output->height;
+
+	*x = margin_left_x;
+
 	return badge_height;
 }
 
@@ -552,10 +571,8 @@ static uint32_t render_badge_datetime(cairo_t *cairo,
 	buf[res] = 0;
 
 	b.text = buf;
-	b.r = 1.0f;
-	b.g = 0.0f;
-	b.b = 0.0f;
-	b.a = 1.0f;
+	BADGE_COLOR_SET(b.bg, 0.9f, 0.9f, 0.9f, 1.0f);
+	BADGE_COLOR_SET(b.border, 0.1f, 0.1f, 0.1f, 1.0f);
 
 	return render_status_badge(cairo, output, x, &b);
 }
@@ -572,20 +589,16 @@ static uint32_t render_badges(cairo_t *cairo,
 
 	struct badge_t test;
 	test.text = "Test1";
-	test.r = 1.0f;
-	test.g = 0.1f;
-	test.b = 0.1f;
-	test.a = 1.0f;
+	BADGE_COLOR_SET(test.bg, 0.9f, 0.1f, 0.1f, 1.0f);
+	BADGE_COLOR_SET(test.border, 0.4f, 0.1f, 0.1f, 1.0f);
 	res = render_status_badge(cairo, output, x, &test);
 	if(res > ret) {
 		ret = res;
 	}
 
 	test.text = "Test2";
-	test.r = 0.1f;
-	test.g = 1.0f;
-	test.b = 0.1f;
-	test.a = 1.0f;
+	BADGE_COLOR_SET(test.bg, 0.1f, 0.9f, 0.1f, 1.0f);
+	BADGE_COLOR_SET(test.border, 0.1f, 0.4f, 0.1f, 1.0f);
 	res = render_status_badge(cairo, output, x, &test);
 	if(res > ret) {
 		ret = res;
