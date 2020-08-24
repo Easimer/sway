@@ -456,6 +456,9 @@ bool bar_setup(struct swaybar *bar, const char *socket_path) {
 		ipc_get_workspaces(bar);
 	}
 	determine_bar_visibility(bar, false);
+
+	bar->badges = create_badges();
+
 	return true;
 }
 
@@ -524,6 +527,7 @@ void bar_teardown(struct swaybar *bar) {
 #if HAVE_TRAY
 	destroy_tray(bar->tray);
 #endif
+	free_badges(bar->badges);
 	free_outputs(&bar->outputs);
 	free_outputs(&bar->unused_outputs);
 	free_seats(&bar->seats);

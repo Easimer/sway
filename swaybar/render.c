@@ -15,6 +15,7 @@
 #include "swaybar/render.h"
 #include "swaybar/status_line.h"
 #include "swaybar/system_info.h"
+#include "swaybar/badges.h"
 #if HAVE_TRAY
 #include "swaybar/tray/tray.h"
 #endif
@@ -23,11 +24,6 @@
 static const int WS_HORIZONTAL_PADDING = 5;
 static const double WS_VERTICAL_PADDING = 1.5;
 static const double BORDER_WIDTH = 1;
-
-#define COLOR_BLACK (0x2B303BFF)
-#define COLOR_GRAY  (0x65737EFF)
-#define COLOR_RED   (0xBF616AFF)
-#define COLOR_WHITE (0xC0C5CEFF)
 
 static uint32_t render_status_line_error(cairo_t *cairo,
 		struct swaybar_output *output, double *x) {
@@ -102,6 +98,7 @@ static uint32_t render_status_line_text(cairo_t *cairo,
 struct badge_t {
 	char const* text;
 	uint32_t bg, border, text_color;
+	float x_offset;
 };
 
 #define M_PI (3.1415926f)
@@ -119,13 +116,18 @@ static uint32_t render_status_badge(cairo_t *cairo,
 	// Draw badge
 	double margin = 2 * output->scale;
 	double padding = 4 * output->scale;
+
+	double badge_width = text_width + 2 * padding;
 	double badge_height = text_height * 1.1f;
-	double margin_right_x = *x;
+	double x_offset = badge->x_offset * badge_width;
+
+	double clip_right_x = *x;
+	double margin_right_x = *x + x_offset;
 	double padding_right_x = margin_right_x - margin;
 	double text_x = padding_right_x - padding - text_width;
 	double padding_left_x = text_x - padding;
 	double margin_left_x = padding_left_x - margin;
-	double badge_width = text_width + 2 * padding;
+	double clip_left_x = margin_left_x;
 	double arc_radius = 4 * output->scale;
 	double tl_corner_x = padding_left_x + arc_radius;
 	double tl_corner_y = 0 + arc_radius;
@@ -135,6 +137,13 @@ static uint32_t render_status_badge(cairo_t *cairo,
 	double br_corner_y = 0 + badge_height - arc_radius;
 	double tr_corner_x = padding_left_x + badge_width - arc_radius;
 	double tr_corner_y = 0 + arc_radius;
+
+	*x = margin_left_x;
+
+	cairo_save(cairo);
+	cairo_rectangle(cairo, clip_left_x, 0, clip_right_x - clip_left_x, badge_height);
+	cairo_clip(cairo);
+
 	cairo_set_source_u32(cairo, badge->bg);
 	cairo_new_path(cairo);
 	cairo_arc(cairo, br_corner_x, br_corner_y, arc_radius,
@@ -168,7 +177,7 @@ static uint32_t render_status_badge(cairo_t *cairo,
 	pango_printf(cairo, config->font, output->scale,
 			config->pango_markup, "%s", badge->text);
 
-	*x = margin_left_x;
+	cairo_restore(cairo);
 
 	return badge_height;
 }
@@ -557,87 +566,43 @@ static uint32_t render_status_line_i3bar(cairo_t *cairo,
 	return max_height;
 }
 
-static uint32_t render_badge_datetime(cairo_t *cairo,
-		struct swaybar_output *output, double *x) {
-	struct badge_t b;
-	char buf[64];
-	struct tm tm;
-	time_t t = time(NULL);
-	localtime_r(&t, &tm);
-	size_t res = strftime(buf, 63, "%D %l:%M%p", &tm);
-	buf[res] = 0;
-
-	b.text = buf;
-	b.bg = COLOR_GRAY;
-	b.border = COLOR_BLACK;
-	b.text_color = COLOR_WHITE;
-
-	return render_status_badge(cairo, output, x, &b);
-}
-
-static uint32_t render_badge_battery(cairo_t *cairo,
-		struct swaybar_output *output, double *x) {
-	char buf[32];
-	struct badge_t b;
-	int battery_capacity = 0;
-
-	b.text = buf;
-	b.bg = COLOR_GRAY;
-	b.border = COLOR_BLACK;
-	b.text_color = COLOR_WHITE;
-
-	int res = si_get_battery_capacity(&battery_capacity);
-	if(res > 0) {
-		snprintf(buf, 31, "BAT %d%%", battery_capacity);
-		if(battery_capacity < 30) {
-			b.bg = COLOR_WHITE;
-			b.border = COLOR_RED;
-			b.text_color = COLOR_RED;
-		}
-	} else if(res == 0) {
-		snprintf(buf, 31, "Charging");
-	} else {
-		return 0;
-	}
-
-	return render_status_badge(cairo, output, x, &b);
-}
-
-static uint32_t render_badge_network(cairo_t *cairo,
-		struct swaybar_output *output, double *x) {
-	char buf[64];
-	struct badge_t b;
-
-	b.text = buf;
-	b.bg = COLOR_GRAY;
-	b.border = COLOR_BLACK;
-	b.text_color = COLOR_WHITE;
-
-	if(!get_network_status(buf, 64)) {
-		return 0;
-	}
-
-	return render_status_badge(cairo, output, x, &b);
-}
-
 static uint32_t render_badges(cairo_t *cairo,
 		struct swaybar_output *output, double *x) {
 	uint32_t ret = 0;
 	uint32_t res;
 
-	res = render_badge_datetime(cairo, output, x);
-	if(res > ret) {
-		ret = res;
-	}
+	const char *text;
+	uint32_t col_bg, col_border, col_text;
+	float x_offset;
 
-	res = render_badge_battery(cairo, output, x);
-	if(res > ret) {
-		ret = res;
-	}
+	struct badges_t* B = output->bar->badges;
 
-	res = render_badge_network(cairo, output, x);
-	if(res > ret) {
-		ret = res;
+	update_badges(B);
+
+	int badge_count = get_badges_count(B);
+	for(int i = 0; i < badge_count; i++) {
+		text = get_badge_text(B, i);
+		if(text == NULL) {
+			continue;
+		}
+
+		if(!get_badge_colors(B, i, &col_bg, &col_border, &col_text)) {
+			continue;
+		}
+
+		x_offset = get_badge_x_offset(B, i);
+
+		struct badge_t badge;
+		badge.text = text;
+		badge.bg = col_bg;
+		badge.border = col_border;
+		badge.text_color = col_text;
+		badge.x_offset = x_offset;
+		res = render_status_badge(cairo, output, x, &badge);
+
+		if(res > ret) {
+			ret = res;
+		}
 	}
 
 	return ret;
@@ -844,6 +809,10 @@ static void output_frame_handle_done(void *data, struct wl_callback *callback,
 	if (output->dirty) {
 		render_frame(output);
 		output->dirty = false;
+
+		if(should_fast_redraw(output->bar->badges)) {
+			output->dirty = true;
+		}
 	}
 }
 

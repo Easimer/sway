@@ -4,6 +4,7 @@
 #include "config.h"
 #include "input.h"
 #include "pool-buffer.h"
+#include "badges.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 
@@ -49,6 +50,8 @@ struct swaybar {
 #endif
 
 	bool running;
+
+	struct badges_t* badges;
 };
 
 struct swaybar_output {
