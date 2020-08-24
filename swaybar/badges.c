@@ -18,11 +18,9 @@
 #define COLOR_WHITE (0xC0C5CEFF)
 #define COLOR_GREEN (0xA3BE8CFF)
 
-#define COLOR_COMMON    (0xFFFFFFFF)
-#define COLOR_UNCOMMON  (0x1EFF00FF)
-#define COLOR_RARE      (0x0070DDFF)
-#define COLOR_EPIC      (0xA335EEFF)
-#define COLOR_LEGENDARY (0xFF8000FF)
+struct palette_t {
+	uint32_t col_bg, col_border, col_text;
+};
 
 struct badge_animinfo_t {
 	int should_be_visible;
@@ -48,6 +46,12 @@ struct badges_t {
 	int animated;
 
 	struct badge_t badges[MAX_BADGE_COUNT];
+};
+
+static struct palette_t badge_quality_palettes[BADGE_QUALITY_MAX] = {
+	{ .col_bg = 0x285577FF, .col_border = 0x4C7899FF, .col_text = 0xFFFFFFFF },
+	{ .col_bg = 0xA54242FF, .col_border = 0xCC6666FF, .col_text = 0xC5C8C6FF },
+	{ .col_bg = 0xDE935FFF, .col_border = 0xF0C674FF, .col_text = 0xFFFFFFFF },
 };
 
 static double get_elapsed_time(struct timespec* then, struct timespec* now) {
@@ -100,14 +104,19 @@ static int update_badge_animinfo(struct badge_animinfo_t *a, double dt) {
 	return 0;
 }
 
+static void map_quality_to_colors(enum badge_quality_t q, struct badge_t *b) {
+	struct palette_t *p = &badge_quality_palettes[(unsigned)q];
+	b->col_bg = p->col_bg;
+	b->col_border = p->col_border;
+	b->col_text = p->col_text;
+}
+
 static void update_badge__datetime(struct badge_t *b) {
 	if(b->user == NULL) {
 		b->user = malloc(64 * sizeof(char));
 
 		b->text = (char*)b->user;
-		b->col_bg = COLOR_GRAY;
-		b->col_border = COLOR_BLACK;
-		b->col_text= COLOR_WHITE;
+		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
 		b->anim.should_be_visible = 1;
 	}
 	char* buf = (char*)b->user;
@@ -118,25 +127,12 @@ static void update_badge__datetime(struct badge_t *b) {
 	buf[res] = 0;
 }
 
-static uint32_t map_rarity_to_color(enum badge_rarity_t r) {
-	switch(r) {
-		case BADGE_RARITY_COMMON: return COLOR_COMMON;
-		case BADGE_RARITY_UNCOMMON: return COLOR_UNCOMMON;
-		case BADGE_RARITY_RARE: return COLOR_RARE;
-		case BADGE_RARITY_EPIC: return COLOR_EPIC;
-		case BADGE_RARITY_LEGENDARY: return COLOR_LEGENDARY;
-		default: return COLOR_WHITE;
-	}
-}
-
 static void update_badge__battery(struct badge_t *b) {
 	if(b->user == NULL) {
 		b->user = malloc(64 * sizeof(char));
 
 		b->text = (char*)b->user;
-		b->col_bg = COLOR_GRAY;
-		b->col_border = COLOR_BLACK;
-		b->col_text = COLOR_WHITE;
+		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
 		b->anim.should_be_visible = 1;
 	}
 
@@ -147,24 +143,16 @@ static void update_badge__battery(struct badge_t *b) {
 	if(res > 0) {
 		snprintf(buf, 63, "BAT %d%%", battery_capacity);
 		if(battery_capacity < 30) {
-			b->col_bg = COLOR_WHITE;
-			b->col_border = COLOR_RED;
-			b->col_text = COLOR_RED;
+			map_quality_to_colors(BADGE_QUALITY_ERROR, b);
 		} else {
-			b->col_bg = COLOR_GRAY;
-			b->col_border = COLOR_BLACK;
-			b->col_text = COLOR_WHITE;
+			map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
 		}
 	} else if(res == 0) {
 		snprintf(buf, 63, "Charging");
-		b->col_bg = COLOR_GRAY;
-		b->col_border = COLOR_BLACK;
-		b->col_text = COLOR_WHITE;
+		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
 	} else {
 		b->anim.should_be_visible = 0;
-		if(b->user != NULL) {
-			free(b->user);
-			b->user = NULL;
+		if(b->text != NULL) {
 			b->text = NULL;
 		}
 	}
@@ -183,12 +171,12 @@ static void update_badge__network(struct badge_t *b) {
 
 	char* buf = (char*)b->user;
 
-	enum badge_rarity_t rarity;
-	if(get_network_status(buf, 64, &rarity)) {
-		b->col_text = map_rarity_to_color(rarity);
+	enum badge_quality_t quality;
+	if(get_network_status(buf, 64, &quality)) {
+		map_quality_to_colors(quality, b);
 		b->anim.should_be_visible = 1;
 	} else {
-		b->col_text = map_rarity_to_color(rarity);
+		map_quality_to_colors(quality, b);
 		b->anim.should_be_visible = 0;
 	}
 }

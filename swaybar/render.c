@@ -65,8 +65,6 @@ static uint32_t render_status_badge(cairo_t *cairo,
 	double bot_start_x = padding_left_x;
 	double bot_end_x = padding_right_x;
 
-	printf("x %f %f %f %f\n", top_start_x, top_end_x, bot_start_x, bot_end_x);
-
 	*x = margin_left_x;
 
 	cairo_save(cairo);

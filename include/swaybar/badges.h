@@ -17,13 +17,11 @@ const char* get_badge_text(struct badges_t*, int index);
 double get_badge_x_offset(struct badges_t*, int index);
 int should_fast_redraw(struct badges_t*);
 
-enum badge_rarity_t {
-	BADGE_RARITY_COMMON = 0,
-	BADGE_RARITY_UNCOMMON,
-	BADGE_RARITY_RARE,
-	BADGE_RARITY_EPIC,
-	BADGE_RARITY_LEGENDARY,
-	BADGE_RARITY_MAX
+enum badge_quality_t {
+	BADGE_QUALITY_NORMAL = 0,
+	BADGE_QUALITY_ERROR,
+	BADGE_QUALITY_GOLD,
+	BADGE_QUALITY_MAX
 };
 
 #endif
