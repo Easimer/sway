@@ -717,25 +717,30 @@ static uint32_t render_workspace_button(cairo_t *cairo,
 		return ideal_surface_height;
 	}
 
-	uint32_t width = ws_horizontal_padding * 2 + text_width + border_width * 2;
+	uint32_t padding = 2 * output->scale;
+	uint32_t width = ws_horizontal_padding * 2 + text_width + border_width * 2 +
+		padding * 2;
+
+	double shear_offset = 4 * output->scale;
+	double top_start_x = *x + shear_offset;
+	double bot_start_x = *x;
+	double top_end_x = top_start_x + width;
+	double bot_end_x = bot_start_x + width;
 
 	cairo_set_source_u32(cairo, box_colors.background);
-	cairo_rectangle(cairo, *x, 0, width, height);
-	cairo_fill(cairo);
-
+	cairo_move_to(cairo, top_start_x, 0);
+	cairo_line_to(cairo, top_end_x, 0);
+	cairo_line_to(cairo, bot_end_x, height);
+	cairo_line_to(cairo, bot_start_x, height);
+	cairo_line_to(cairo, top_start_x, 0);
+	cairo_fill_preserve(cairo);
 	cairo_set_source_u32(cairo, box_colors.border);
-	cairo_rectangle(cairo, *x, 0, width, border_width);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, *x, 0, border_width, height);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, *x + width - border_width, 0, border_width, height);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, *x, height - border_width, width, border_width);
-	cairo_fill(cairo);
+	cairo_stroke(cairo);
 
 	double text_y = height / 2.0 - text_height / 2.0;
 	cairo_set_source_u32(cairo, box_colors.text);
-	cairo_move_to(cairo, *x + width / 2 - text_width / 2, (int)floor(text_y));
+	cairo_move_to(cairo,
+			top_start_x - padding / 2 + width / 2 - text_width / 2, (int)floor(text_y));
 	pango_printf(cairo, config->font, output->scale, config->pango_markup,
 			"%s", ws->label);
 
@@ -749,7 +754,8 @@ static uint32_t render_workspace_button(cairo_t *cairo,
 	hotspot->data = strdup(ws->name);
 	wl_list_insert(&output->hotspots, &hotspot->link);
 
-	*x += width;
+	uint32_t margin = 4 * output->scale;
+	*x += width + margin;
 	return output->height;
 }
 
