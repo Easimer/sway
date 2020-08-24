@@ -160,6 +160,13 @@ static void update_badge__battery(struct badge_t *b) {
 		b->col_bg = COLOR_GRAY;
 		b->col_border = COLOR_BLACK;
 		b->col_text = COLOR_WHITE;
+	} else {
+		b->anim.should_be_visible = 0;
+		if(b->user != NULL) {
+			free(b->user);
+			b->user = NULL;
+			b->text = NULL;
+		}
 	}
 }
 
