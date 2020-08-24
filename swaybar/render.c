@@ -44,29 +44,28 @@ static uint32_t render_status_badge(cairo_t *cairo,
 			output->scale, config->pango_markup, "%s", badge->text);
 
 	// Draw badge
-	double margin = 2 * output->scale;
-	double padding = 4 * output->scale;
+	double margin = 4 * output->scale;
+	double padding = 6 * output->scale;
+	double shear_offset = 4 * output->scale;
 
 	double badge_width = text_width + 2 * padding;
 	double badge_height = text_height * 1.1f;
 	double x_offset = badge->x_offset * badge_width;
 
-	double clip_right_x = *x;
+	double clip_right_x = *x + shear_offset;
 	double margin_right_x = *x + x_offset;
 	double padding_right_x = margin_right_x - margin;
 	double text_x = padding_right_x - padding - text_width;
 	double padding_left_x = text_x - padding;
 	double margin_left_x = padding_left_x - margin;
 	double clip_left_x = margin_left_x;
-	double arc_radius = 4 * output->scale;
-	double tl_corner_x = padding_left_x + arc_radius;
-	double tl_corner_y = 0 + arc_radius;
-	double bl_corner_x = tl_corner_x;
-	double bl_corner_y = 0 + badge_height - arc_radius;
-	double br_corner_x = padding_left_x + badge_width - arc_radius;
-	double br_corner_y = 0 + badge_height - arc_radius;
-	double tr_corner_x = padding_left_x + badge_width - arc_radius;
-	double tr_corner_y = 0 + arc_radius;
+
+	double top_start_x = padding_left_x + shear_offset;
+	double top_end_x = padding_right_x + shear_offset;
+	double bot_start_x = padding_left_x;
+	double bot_end_x = padding_right_x;
+
+	printf("x %f %f %f %f\n", top_start_x, top_end_x, bot_start_x, bot_end_x);
 
 	*x = margin_left_x;
 
@@ -74,17 +73,13 @@ static uint32_t render_status_badge(cairo_t *cairo,
 	cairo_rectangle(cairo, clip_left_x, 0, clip_right_x - clip_left_x, badge_height);
 	cairo_clip(cairo);
 
-	cairo_set_source_u32(cairo, badge->bg);
 	cairo_new_path(cairo);
-	cairo_arc(cairo, br_corner_x, br_corner_y, arc_radius,
-			0.0f * M_PI, 0.5f * M_PI);
-	cairo_arc(cairo, bl_corner_x, bl_corner_y, arc_radius,
-			0.5f * M_PI, 1.0f * M_PI);
-	cairo_arc(cairo, tl_corner_x, tl_corner_y, arc_radius,
-			1.0f * M_PI, 1.5f * M_PI);
-	cairo_arc(cairo, tr_corner_x, tr_corner_y, arc_radius,
-			1.5f * M_PI, 2.0f * M_PI);
-	cairo_close_path(cairo);
+	cairo_move_to(cairo, top_start_x, 0);
+	cairo_line_to(cairo, top_end_x, 0);
+	cairo_line_to(cairo, bot_end_x, badge_height);
+	cairo_line_to(cairo, bot_start_x, badge_height);
+	cairo_line_to(cairo, top_start_x, 0);
+	cairo_set_source_u32(cairo, badge->bg);
 	cairo_fill_preserve(cairo);
 	cairo_set_source_u32(cairo, badge->border);
 	cairo_stroke(cairo);
