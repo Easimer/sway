@@ -18,6 +18,12 @@
 #define COLOR_WHITE (0xC0C5CEFF)
 #define COLOR_GREEN (0xA3BE8CFF)
 
+#define COLOR_COMMON    (0xFFFFFFFF)
+#define COLOR_UNCOMMON  (0x1EFF00FF)
+#define COLOR_RARE      (0x0070DDFF)
+#define COLOR_EPIC      (0xA335EEFF)
+#define COLOR_LEGENDARY (0xFF8000FF)
+
 struct badge_animinfo_t {
 	int should_be_visible;
 	double visible_ratio;
@@ -112,6 +118,17 @@ static void update_badge__datetime(struct badge_t *b) {
 	buf[res] = 0;
 }
 
+static uint32_t map_rarity_to_color(enum badge_rarity_t r) {
+	switch(r) {
+		case BADGE_RARITY_COMMON: return COLOR_COMMON;
+		case BADGE_RARITY_UNCOMMON: return COLOR_UNCOMMON;
+		case BADGE_RARITY_RARE: return COLOR_RARE;
+		case BADGE_RARITY_EPIC: return COLOR_EPIC;
+		case BADGE_RARITY_LEGENDARY: return COLOR_LEGENDARY;
+		default: return COLOR_WHITE;
+	}
+}
+
 static void update_badge__battery(struct badge_t *b) {
 	if(b->user == NULL) {
 		b->user = malloc(64 * sizeof(char));
@@ -159,9 +176,12 @@ static void update_badge__network(struct badge_t *b) {
 
 	char* buf = (char*)b->user;
 
-	if(get_network_status(buf, 64)) {
+	enum badge_rarity_t rarity;
+	if(get_network_status(buf, 64, &rarity)) {
+		b->col_text = map_rarity_to_color(rarity);
 		b->anim.should_be_visible = 1;
 	} else {
+		b->col_text = map_rarity_to_color(rarity);
 		b->anim.should_be_visible = 0;
 	}
 }

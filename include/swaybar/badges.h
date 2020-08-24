@@ -1,6 +1,8 @@
 #ifndef _SWAYBAR_BADGES_H
 #define _SWAYBAR_BADGES_H
 
+#include <stdint.h>
+
 struct badges_t;
 
 struct badges_t* create_badges();
@@ -14,5 +16,14 @@ int get_badge_colors(struct badges_t*, int index,
 const char* get_badge_text(struct badges_t*, int index);
 double get_badge_x_offset(struct badges_t*, int index);
 int should_fast_redraw(struct badges_t*);
+
+enum badge_rarity_t {
+	BADGE_RARITY_COMMON = 0,
+	BADGE_RARITY_UNCOMMON,
+	BADGE_RARITY_RARE,
+	BADGE_RARITY_EPIC,
+	BADGE_RARITY_LEGENDARY,
+	BADGE_RARITY_MAX
+};
 
 #endif

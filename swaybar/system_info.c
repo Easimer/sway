@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <math.h>
 #include "swaybar/system_info.h"
 
 #define AC_ONLINE_PATH "/sys/class/power_supply/AC/online"
@@ -89,6 +90,7 @@ struct wired_info_t {
 struct interface_info_t {
 	int present;
 	int is_wireless;
+    enum badge_rarity_t rarity;
 	union {
 		struct wireless_info_t wireless;
 		struct wired_info_t wired;
@@ -138,21 +140,27 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 
 			switch(ethtool_cmd_speed(&ecmd)) {
 				case SPEED_10:
+					interface->rarity = BADGE_RARITY_COMMON;
 					interface->wired.speed = 10;
 					break;
 				case SPEED_100:
+					interface->rarity = BADGE_RARITY_UNCOMMON;
 					interface->wired.speed = 100;
 					break;
 				case SPEED_1000:
+					interface->rarity = BADGE_RARITY_RARE;
 					interface->wired.speed = 1000;
 					break;
 				case SPEED_2500:
+					interface->rarity = BADGE_RARITY_EPIC;
 					interface->wired.speed = 2500;
 					break;
 				case SPEED_10000:
+					interface->rarity = BADGE_RARITY_LEGENDARY;
 					interface->wired.speed = 10000;
 					break;
 				default:
+					interface->rarity = BADGE_RARITY_COMMON;
 					interface->wired.speed = 0;
 					break;
 			}
@@ -175,14 +183,31 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 			interface->wireless.ssid[63] = 0;
 		}
 
+		if(ioctl(sock, SIOCGIWFREQ, &pwrq) != -1) {
+			interface->rarity = BADGE_RARITY_COMMON;
+
+			double freq = ((double)pwrq.u.freq.m) * pow(10, pwrq.u.freq.e);
+
+			if(freq / 1000000000 > 2.6) {
+				// Connected to a 5GHz AP
+				// Grant uncommon rarity
+				interface->rarity = BADGE_RARITY_UNCOMMON;
+			}
+		}
+
 		close(sock);
 		return 0;
 	}
 }
 
-int get_network_status(char* buffer, size_t max) {
+int get_network_status(char* buffer, size_t max,
+		enum badge_rarity_t* out_rarity) {
 	struct ifaddrs *ifaddr, *ifa;
 	struct interface_info_t interface = { 0 };
+
+	if(buffer == NULL || max == 0) {
+		return 0;
+	}
 
 	if(getifaddrs(&ifaddr) == -1) {
 		return 0;
@@ -213,6 +238,7 @@ int get_network_status(char* buffer, size_t max) {
 			}
 		}
 		buffer[max - 1] = 0;
+		*out_rarity = interface.rarity;
 		return 1;
 	}
 
