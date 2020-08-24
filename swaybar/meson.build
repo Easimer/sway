@@ -36,6 +36,7 @@ executable(
 		'main.c',
 		'render.c',
 		'status_line.c',
+		'system_info.c',
 		tray_files
 	],
 	include_directories: [sway_inc],

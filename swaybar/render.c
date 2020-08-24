@@ -14,6 +14,7 @@
 #include "swaybar/ipc.h"
 #include "swaybar/render.h"
 #include "swaybar/status_line.h"
+#include "swaybar/system_info.h"
 #if HAVE_TRAY
 #include "swaybar/tray/tray.h"
 #endif
@@ -574,12 +575,45 @@ static uint32_t render_badge_datetime(cairo_t *cairo,
 	return render_status_badge(cairo, output, x, &b);
 }
 
+static uint32_t render_badge_battery(cairo_t *cairo,
+		struct swaybar_output *output, double *x) {
+	char buf[32];
+	struct badge_t b;
+	int battery_capacity = 0;
+
+	b.text = buf;
+	b.bg = COLOR_GRAY;
+	b.border = COLOR_BLACK;
+	b.text_color = COLOR_WHITE;
+
+	int res = si_get_battery_capacity(&battery_capacity);
+	if(res > 0) {
+		snprintf(buf, 31, "BAT %d%%", battery_capacity);
+		if(battery_capacity < 30) {
+			b.bg = COLOR_WHITE;
+			b.border = COLOR_RED;
+			b.text_color = COLOR_RED;
+		}
+	} else if(res == 0) {
+		snprintf(buf, 31, "Charging");
+	} else {
+		return 0;
+	}
+
+	return render_status_badge(cairo, output, x, &b);
+}
+
 static uint32_t render_badges(cairo_t *cairo,
 		struct swaybar_output *output, double *x) {
 	uint32_t ret = 0;
 	uint32_t res;
 
 	res = render_badge_datetime(cairo, output, x);
+	if(res > ret) {
+		ret = res;
+	}
+
+	res = render_badge_battery(cairo, output, x);
 	if(res > ret) {
 		ret = res;
 	}
