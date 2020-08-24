@@ -603,6 +603,23 @@ static uint32_t render_badge_battery(cairo_t *cairo,
 	return render_status_badge(cairo, output, x, &b);
 }
 
+static uint32_t render_badge_network(cairo_t *cairo,
+		struct swaybar_output *output, double *x) {
+	char buf[64];
+	struct badge_t b;
+
+	b.text = buf;
+	b.bg = COLOR_GRAY;
+	b.border = COLOR_BLACK;
+	b.text_color = COLOR_WHITE;
+
+	if(!get_network_status(buf, 64)) {
+		return 0;
+	}
+
+	return render_status_badge(cairo, output, x, &b);
+}
+
 static uint32_t render_badges(cairo_t *cairo,
 		struct swaybar_output *output, double *x) {
 	uint32_t ret = 0;
@@ -614,6 +631,11 @@ static uint32_t render_badges(cairo_t *cairo,
 	}
 
 	res = render_badge_battery(cairo, output, x);
+	if(res > ret) {
+		ret = res;
+	}
+
+	res = render_badge_network(cairo, output, x);
 	if(res > ret) {
 		ret = res;
 	}

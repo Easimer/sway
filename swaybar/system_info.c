@@ -1,4 +1,13 @@
 #include <stdio.h>
+#include <string.h>
+#include <ifaddrs.h>
+#include <linux/ethtool.h>
+#include <linux/sockios.h>
+#include <linux/wireless.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include "swaybar/system_info.h"
 
 #define AC_ONLINE_PATH "/sys/class/power_supply/AC/online"
@@ -67,4 +76,142 @@ int si_get_battery_capacity(int* battery_capacity) {
 	}
 
 	return -1;
+}
+
+struct wireless_info_t {
+	char ssid[64];
+};
+
+struct wired_info_t {
+	int speed;
+};
+
+struct interface_info_t {
+	int present;
+	int is_wireless;
+	union {
+		struct wireless_info_t wireless;
+		struct wired_info_t wired;
+	};
+};
+
+int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
+	int sock = -1;
+	struct iwreq pwrq;
+	struct ifreq ifr;
+	memset(&pwrq, 0, sizeof(pwrq));
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(pwrq.ifr_name, ifa_name, IFNAMSIZ);
+	strncpy(ifr.ifr_name, ifa_name, IFNAMSIZ);
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(sock == -1) {
+		return 0;
+	}
+
+	if(ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
+		close(sock);
+		return 0;
+	}
+
+	// Interface must be up, must be running and must not be a loopback
+	int if_up = ifr.ifr_flags & IFF_UP;
+	int if_loopback = ifr.ifr_flags & IFF_LOOPBACK;
+	int if_running = ifr.ifr_flags & IFF_RUNNING;
+
+	if(if_loopback || !if_up  || !if_running) {
+		close(sock);
+		return 0;
+	}
+
+	if(ioctl(sock, SIOCGIWNAME, &pwrq) == -1) {
+		// Wireless Extensions is not present on this interface
+		// It could be wired
+
+		struct ethtool_cmd ecmd;
+		ecmd.cmd = ETHTOOL_GSET;
+
+		ifr.ifr_data = &ecmd;
+		if(ioctl(sock, SIOCETHTOOL, &ifr) >= 0) {
+			interface->present = 1;
+			interface->is_wireless = 0;
+
+			switch(ethtool_cmd_speed(&ecmd)) {
+				case SPEED_10:
+					interface->wired.speed = 10;
+					break;
+				case SPEED_100:
+					interface->wired.speed = 100;
+					break;
+				case SPEED_1000:
+					interface->wired.speed = 1000;
+					break;
+				case SPEED_2500:
+					interface->wired.speed = 2500;
+					break;
+				case SPEED_10000:
+					interface->wired.speed = 10000;
+					break;
+				default:
+					interface->wired.speed = 0;
+					break;
+			}
+		}
+		return 1;
+	} else {
+		// Wireless Extensions is present, so it's a wireless interface
+		char essid[IW_ESSID_MAX_SIZE];
+		pwrq.u.essid.pointer = essid;
+		pwrq.u.data.length = IW_ESSID_MAX_SIZE;
+		pwrq.u.data.flags = 0;
+		memset(essid, 0, IW_ESSID_MAX_SIZE);
+
+		if(ioctl(sock, SIOCGIWESSID, &pwrq) != -1) {
+			interface->present = 1;
+			interface->is_wireless = 1;
+			strncpy(interface->wireless.ssid, essid, 63);
+			interface->wireless.ssid[63] = 0;
+		}
+
+		return 0;
+	}
+}
+
+int get_network_status(char* buffer, size_t max) {
+	struct ifaddrs *ifaddr, *ifa;
+	struct interface_info_t interface = { 0 };
+
+	if(getifaddrs(&ifaddr) == -1) {
+		return 0;
+	}
+
+	for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+		if(ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_PACKET) {
+			continue;
+		}
+
+		int res = get_interface_info(ifa->ifa_name, &interface);
+
+		if(res == 1) {
+			break;
+		}
+	}
+
+	freeifaddrs(ifaddr);
+
+	if(interface.present) {
+		if(interface.is_wireless) {
+			snprintf(buffer, max - 1, "%s", interface.wireless.ssid);
+		} else {
+			if(interface.wired.speed > 0) {
+				snprintf(buffer, max - 1, "ETH %d", interface.wired.speed);
+			} else {
+				snprintf(buffer, max - 1, "ETH");
+			}
+		}
+		buffer[max - 1] = 0;
+		return 1;
+	}
+
+	return 0;
 }
