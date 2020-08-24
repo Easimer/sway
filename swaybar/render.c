@@ -640,25 +640,6 @@ static uint32_t render_badges(cairo_t *cairo,
 		ret = res;
 	}
 
-	struct badge_t test;
-	test.text = "Test1";
-	test.bg = COLOR_GRAY;
-	test.border = COLOR_BLACK;
-	test.text_color = COLOR_WHITE;
-	res = render_status_badge(cairo, output, x, &test);
-	if(res > ret) {
-		ret = res;
-	}
-
-	test.text = "Test2";
-	test.bg = COLOR_RED;
-	test.border = COLOR_BLACK;
-	test.text_color = COLOR_WHITE;
-	res = render_status_badge(cairo, output, x, &test);
-	if(res > ret) {
-		ret = res;
-	}
-
 	return ret;
 }
 

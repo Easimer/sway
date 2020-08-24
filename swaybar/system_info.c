@@ -157,6 +157,8 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 					break;
 			}
 		}
+
+		close(sock);
 		return 1;
 	} else {
 		// Wireless Extensions is present, so it's a wireless interface
@@ -173,6 +175,7 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 			interface->wireless.ssid[63] = 0;
 		}
 
+		close(sock);
 		return 0;
 	}
 }
