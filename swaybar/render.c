@@ -756,13 +756,6 @@ static uint32_t render_workspace_button(cairo_t *cairo,
 static uint32_t render_to_cairo(cairo_t *cairo, struct swaybar_output *output) {
 	struct swaybar *bar = output->bar;
 	struct swaybar_config *config = bar->config;
-	cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
-	if (output->focused) {
-		cairo_set_source_u32(cairo, config->colors.focused_background);
-	} else {
-		cairo_set_source_u32(cairo, config->colors.background);
-	}
-	cairo_paint(cairo);
 
 	int th;
 	get_text_size(cairo, config->font, NULL, &th, NULL, output->scale, false, "");
