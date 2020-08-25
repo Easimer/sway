@@ -13,6 +13,7 @@
 #include <json.h>
 #include "swaybar/ipc.h"
 #include "swaybar/system_info.h"
+#include "log.h"
 
 #define AC_ONLINE_PATH "/sys/class/power_supply/AC/online"
 #define BATTERY_CAPACITY_PATH "/sys/class/power_supply/BAT%d/capacity"
@@ -274,14 +275,14 @@ static int init_session(struct ipc_session_t *session) {
 	session->fd = -1;
 
 	if(path == NULL) {
-		printf("getenv(SWAYSOCK) failed\n");
+		sway_log(SWAY_ERROR, "getenv(SWAYSOCK) failed\n");
 		return 0;
 	}
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 
 	if(fd == -1) {
-		perror("failed to get the keyboard layout: couldn't open new socket");
+		sway_log_errno(SWAY_ERROR, "couldn't open new socket");
 		return 0;
 	}
 
@@ -291,7 +292,7 @@ static int init_session(struct ipc_session_t *session) {
 	rc = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
 
 	if(rc != 0) {
-		perror("failed to get the keyboard layout: couldn't connect()");
+		sway_log_errno(SWAY_ERROR, "couldn't connect()");
 		close(fd);
 		return 0;
 	}
@@ -344,13 +345,13 @@ struct keyboard_layout_provider_t* create_keyboard_layout_provider() {
 
 	if(ret != NULL) {
 		if(!init_session(&ret->session)) {
-			printf("Session init failed\n");
+			sway_log(SWAY_ERROR, "init_session() failed\n");
 			free(ret);
 			ret = NULL;
 		}
 
 		if(!ipc_subscribe(&ret->session, "input")) {
-			printf("IPC subscribe failed\n");
+			sway_log(SWAY_ERROR, "ipc_subscribe() failed\n");
 			teardown_session(&ret->session);
 			free(ret);
 			ret = NULL;
@@ -376,13 +377,13 @@ static void process_input_object(struct keyboard_layout_provider_t *klp,
 	struct json_object *xkb_active_layout_name;
 	if(!json_object_object_get_ex(input,
 				"xkb_active_layout_name", &xkb_active_layout_name)) {
-		printf("xkb_active_layout_name null\n");
+		sway_log(SWAY_DEBUG, "xkb_active_layout_name was NULL\n");
 		return;
 	}
 
 	const char* layout = json_object_get_string(xkb_active_layout_name);
 	if(layout == NULL) {
-		printf("layout null\n");
+		sway_log(SWAY_DEBUG, "layout was NULL\n");
 		return;
 	}
 
@@ -455,13 +456,18 @@ static void process_message(struct keyboard_layout_provider_t *klp,
 		struct i3_ipc_header_t* hdr, const char* payload) {
 	switch(hdr->kind) {
 		case EVENT_INPUT:
+		sway_log(SWAY_DEBUG,
+				"incoming EVENT message packet len=%u\n", hdr->len);
 		process_input_event(klp, payload);
 		break;
 		case MESSAGE_GET_INPUTS:
+		sway_log(SWAY_DEBUG,
+				"incoming GET INPUTS reply packet len=%u\n", hdr->len);
 		process_get_inputs_reply(klp, payload);
 		break;
 		default:
-		printf("ipc incoming packet of kind %u len %u ignored\n",
+		sway_log(SWAY_DEBUG,
+				"incoming ipc packet of kind %u len=%u was ignored\n",
 				hdr->kind, hdr->len);
 		break;
 	}
@@ -489,7 +495,7 @@ static void read_messages(struct keyboard_layout_provider_t *klp) {
 				}
 			}
 		} else {
-			printf("ioctl failed rc=%d\n", rc);
+			sway_log(SWAY_DEBUG, "ioctl failed rc=%d\n", rc);
 		}
 	} while(bytes_avail > 0);
 }
