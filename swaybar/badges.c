@@ -10,7 +10,7 @@
 #define SLIDE_IN_SPEED  (0.75f)
 #define SLIDE_OUT_SPEED (1.0f)
 
-#define MAX_BADGE_COUNT (3)
+#define MAX_BADGE_COUNT (4)
 
 #define COLOR_BLACK (0x2B303BFF)
 #define COLOR_GRAY  (0x65737EFF)
@@ -30,6 +30,7 @@ struct badge_animinfo_t {
 struct badge_t;
 
 typedef void(*badge_update_t)(struct badge_t*);
+typedef void(*badge_cleanup_t)(struct badge_t*);
 
 struct badge_t {
 	int present;
@@ -39,6 +40,7 @@ struct badge_t {
 	void* user;
 
 	badge_update_t update;
+	badge_cleanup_t cleanup;
 };
 
 struct badges_t {
@@ -65,7 +67,8 @@ static double get_elapsed_time(struct timespec* then, struct timespec* now) {
 	return (double)delta_sec + (double)(delta_nsec / 1000000000.0);
 }
 
-static void register_badge(struct badges_t *b, badge_update_t update) {
+static void register_badge(struct badges_t *b,
+		badge_update_t update, badge_cleanup_t cleanup) {
 	if(b == NULL) return;
 	if(update == NULL) return;
 
@@ -82,6 +85,7 @@ static void register_badge(struct badges_t *b, badge_update_t update) {
 		b->badges[index].anim.should_be_visible = 1;
 		b->badges[index].anim.visible_ratio = 0.0f;
 		b->badges[index].update = update;
+		b->badges[index].cleanup = cleanup;
 		b->badges[index].user = NULL;
 
 		update(&b->badges[index]);
@@ -125,6 +129,25 @@ static void update_badge__datetime(struct badge_t *b) {
 	localtime_r(&t, &tm);
 	size_t res = strftime(buf, 63, "%D %l:%M%p", &tm);
 	buf[res] = 0;
+}
+
+static void cleanup_badge__kbd_layout(struct badge_t *b) {
+	if(b->user != NULL) {
+		destroy_keyboard_layout_provider(
+			(struct keyboard_layout_provider_t*)b->user
+		);
+	}
+}
+
+static void update_badge__kbd_layout(struct badge_t *b) {
+	if(b->user == NULL) {
+		b->user = create_keyboard_layout_provider();
+		b->text = "Hi";
+		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
+	}
+
+	b->text = get_current_keyboard_layout(
+			(struct keyboard_layout_provider_t*)b->user);
 }
 
 static void update_badge__battery(struct badge_t *b) {
@@ -242,9 +265,10 @@ struct badges_t* create_badges() {
 		b->badges[i].present = 0;
 	}
 
-	register_badge(b, &update_badge__datetime);
-	register_badge(b, &update_badge__battery);
-	register_badge(b, &update_badge__network);
+	register_badge(b, &update_badge__datetime, NULL);
+	register_badge(b, &update_badge__battery, NULL);
+	register_badge(b, &update_badge__network, NULL);
+	register_badge(b, &update_badge__kbd_layout, &cleanup_badge__kbd_layout);
 
 	b->animated = 0;
 	clock_gettime(CLOCK_MONOTONIC, &b->last_update);
