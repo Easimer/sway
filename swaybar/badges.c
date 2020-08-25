@@ -5,43 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "swaybar/badges.h"
-#include "swaybar/system_info.h"
+#include "swaybar/badges_internal.h"
 
 #define SLIDE_IN_SPEED  (0.75f)
 #define SLIDE_OUT_SPEED (1.0f)
 
 #define MAX_BADGE_COUNT (4)
-
-#define COLOR_BLACK (0x2B303BFF)
-#define COLOR_GRAY  (0x65737EFF)
-#define COLOR_RED   (0xBF616AFF)
-#define COLOR_WHITE (0xC0C5CEFF)
-#define COLOR_GREEN (0xA3BE8CFF)
-
-struct palette_t {
-	uint32_t col_bg, col_border, col_text;
-};
-
-struct badge_animinfo_t {
-	int should_be_visible;
-	double visible_ratio;
-};
-
-struct badge_t;
-
-typedef void(*badge_update_t)(struct badge_t*);
-typedef void(*badge_cleanup_t)(struct badge_t*);
-
-struct badge_t {
-	int present;
-	char const* text;
-	uint32_t col_bg, col_border, col_text;
-	struct badge_animinfo_t anim;
-	void* user;
-
-	badge_update_t update;
-	badge_cleanup_t cleanup;
-};
 
 struct badges_t {
 	struct timespec last_update;
@@ -67,28 +36,32 @@ static double get_elapsed_time(struct timespec* then, struct timespec* now) {
 	return (double)delta_sec + (double)(delta_nsec / 1000000000.0);
 }
 
-static void register_badge(struct badges_t *b,
-		badge_update_t update, badge_cleanup_t cleanup) {
-	if(b == NULL) return;
-	if(update == NULL) return;
+void register_badge_class(struct badges_t *B,
+		struct badge_class_t *cls) {
+	if(B == NULL) return;
+	if(cls == NULL) return;
 
+	// Find free slot
 	int index;
 	for(index = 0; index < MAX_BADGE_COUNT; index++) {
-		if(!b->badges[index].present) {
+		if(!B->badges[index].present) {
 			break;
 		}
 	}
 
 	if(index < MAX_BADGE_COUNT) {
-		memset(&b->badges[index], 0, sizeof(struct badge_t));
-		b->badges[index].present = 1;
-		b->badges[index].anim.should_be_visible = 1;
-		b->badges[index].anim.visible_ratio = 0.0f;
-		b->badges[index].update = update;
-		b->badges[index].cleanup = cleanup;
-		b->badges[index].user = NULL;
+		// Found a free slot, initialize it
+		struct badge_t* badge = &B->badges[index];
+		memset(badge, 0, sizeof(struct badge_t));
+		badge->present = 1;
+		
+		badge->anim.should_be_visible = 1;
+		badge->anim.visible_ratio = 0.0f;
 
-		update(&b->badges[index]);
+		badge->class = *cls;
+		badge->user = NULL;
+
+		cls->setup(badge);
 	}
 }
 
@@ -108,100 +81,8 @@ static int update_badge_animinfo(struct badge_animinfo_t *a, double dt) {
 	return 0;
 }
 
-static void map_quality_to_colors(enum badge_quality_t q, struct badge_t *b) {
-	struct palette_t *p = &badge_quality_palettes[(unsigned)q];
-	b->col_bg = p->col_bg;
-	b->col_border = p->col_border;
-	b->col_text = p->col_text;
-}
-
-static void update_badge__datetime(struct badge_t *b) {
-	if(b->user == NULL) {
-		b->user = malloc(64 * sizeof(char));
-
-		b->text = (char*)b->user;
-		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-		b->anim.should_be_visible = 1;
-	}
-	char* buf = (char*)b->user;
-	struct tm tm;
-	time_t t = time(NULL);
-	localtime_r(&t, &tm);
-	size_t res = strftime(buf, 63, "%D %l:%M%p", &tm);
-	buf[res] = 0;
-}
-
-static void cleanup_badge__kbd_layout(struct badge_t *b) {
-	if(b->user != NULL) {
-		destroy_keyboard_layout_provider(
-			(struct keyboard_layout_provider_t*)b->user
-		);
-	}
-}
-
-static void update_badge__kbd_layout(struct badge_t *b) {
-	if(b->user == NULL) {
-		b->user = create_keyboard_layout_provider();
-		b->text = "Hi";
-		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-	}
-
-	b->text = get_current_keyboard_layout(
-			(struct keyboard_layout_provider_t*)b->user);
-}
-
-static void update_badge__battery(struct badge_t *b) {
-	if(b->user == NULL) {
-		b->user = malloc(64 * sizeof(char));
-
-		b->text = (char*)b->user;
-		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-		b->anim.should_be_visible = 1;
-	}
-
-	char* buf = (char*)b->user;
-	int battery_capacity = 0;
-
-	int res = si_get_battery_capacity(&battery_capacity);
-	if(res > 0) {
-		snprintf(buf, 63, "BAT %d%%", battery_capacity);
-		if(battery_capacity < 30) {
-			map_quality_to_colors(BADGE_QUALITY_ERROR, b);
-		} else {
-			map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-		}
-	} else if(res == 0) {
-		snprintf(buf, 63, "Charging");
-		map_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-	} else {
-		b->anim.should_be_visible = 0;
-		if(b->text != NULL) {
-			b->text = NULL;
-		}
-	}
-}
-
-static void update_badge__network(struct badge_t *b) {
-	if(b->user == NULL) {
-		b->user = malloc(64 * sizeof(char));
-
-		b->text = (char*)b->user;
-		b->col_bg = COLOR_GRAY;
-		b->col_border = COLOR_BLACK;
-		b->col_text = COLOR_WHITE;
-		b->anim.should_be_visible = 0;
-	}
-
-	char* buf = (char*)b->user;
-
-	enum badge_quality_t quality;
-	if(get_network_status(buf, 64, &quality)) {
-		map_quality_to_colors(quality, b);
-		b->anim.should_be_visible = 1;
-	} else {
-		map_quality_to_colors(quality, b);
-		b->anim.should_be_visible = 0;
-	}
+void map_badge_quality_to_colors(enum badge_quality_t q, struct badge_t *b) {
+	b->color = badge_quality_palettes[(unsigned)q];
 }
 
 void update_badges(struct badges_t *b) {
@@ -213,10 +94,11 @@ void update_badges(struct badges_t *b) {
 
 	b->animated = 0;
 	for(int i = 0; i < MAX_BADGE_COUNT; i++) {
-		if(!b->badges[i].present) continue;
+		struct badge_t *badge = &b->badges[i];
+		if(!badge->present) continue;
 
-		b->badges[i].update(&b->badges[i]);
-		if(update_badge_animinfo(&b->badges[i].anim, dt)) {
+		badge->class.update(badge);
+		if(update_badge_animinfo(&badge->anim, dt)) {
 			b->animated = 1;
 		}
 	}
@@ -234,9 +116,11 @@ int get_badge_colors(struct badges_t *b, int index,
 	if(index < 0 || index >= MAX_BADGE_COUNT) return 0;
 	if(!b->badges[index].present) return 0;
 
-	*col_bg = b->badges[index].col_bg;
-	*col_border = b->badges[index].col_border;
-	*col_text = b->badges[index].col_text;
+	struct badge_t *badge = &b->badges[index];
+
+	*col_bg = badge->color.col_bg;
+	*col_border = badge->color.col_border;
+	*col_text = badge->color.col_text;
 
 	return 1;
 }
@@ -257,6 +141,11 @@ double get_badge_x_offset(struct badges_t *b, int index) {
 	return 1.0f - b->badges[index].anim.visible_ratio;
 }
 
+DECLARE_BADGE_CLASS_REGISTER(datetime);
+DECLARE_BADGE_CLASS_REGISTER(battery);
+DECLARE_BADGE_CLASS_REGISTER(network);
+DECLARE_BADGE_CLASS_REGISTER(kbd_layout);
+
 struct badges_t* create_badges() {
 	void* p = malloc(sizeof(struct badges_t));
 	struct badges_t* b = (struct badges_t*)p;
@@ -265,10 +154,10 @@ struct badges_t* create_badges() {
 		b->badges[i].present = 0;
 	}
 
-	register_badge(b, &update_badge__datetime, NULL);
-	register_badge(b, &update_badge__battery, NULL);
-	register_badge(b, &update_badge__network, NULL);
-	register_badge(b, &update_badge__kbd_layout, &cleanup_badge__kbd_layout);
+	CALL_REGISTER_BADGE_CLASS(datetime, b);
+	CALL_REGISTER_BADGE_CLASS(battery, b);
+	CALL_REGISTER_BADGE_CLASS(network, b);
+	CALL_REGISTER_BADGE_CLASS(kbd_layout, b);
 
 	b->animated = 0;
 	clock_gettime(CLOCK_MONOTONIC, &b->last_update);

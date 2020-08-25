@@ -38,6 +38,10 @@ executable(
 		'status_line.c',
 		'system_info.c',
 		'badges.c',
+		'badges_datetime.c',
+		'badges_battery.c',
+		'badges_network.c',
+		'badges_kbd_layout.c',
 		tray_files
 	],
 	include_directories: [sway_inc],
