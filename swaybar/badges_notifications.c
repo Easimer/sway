@@ -131,6 +131,8 @@ static void tick_notifications(struct notifications_t *n, double dt) {
 					n->permanent_current = n->list_permanent;
 				}
 			}
+
+			n->cycle_timer = CYCLE_INTERVAL;
 		}
 
 		if(n->permanent_current != NULL) {
