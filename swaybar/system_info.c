@@ -107,8 +107,8 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 	struct ifreq ifr;
 	memset(&pwrq, 0, sizeof(pwrq));
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(pwrq.ifr_name, ifa_name, IFNAMSIZ);
-	strncpy(ifr.ifr_name, ifa_name, IFNAMSIZ);
+	strncpy(pwrq.ifr_name, ifa_name, IFNAMSIZ-1);
+	strncpy(ifr.ifr_name, ifa_name, IFNAMSIZ-1);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if(sock == -1) {
@@ -387,7 +387,7 @@ static void process_input_object(struct keyboard_layout_provider_t *klp,
 		return;
 	}
 
-	strncpy(klp->layout_id, layout, KLP_LAYOUT_MAX_LEN);
+	strncpy(klp->layout_id, layout, KLP_LAYOUT_MAX_LEN-1);
 }
 static void process_input_event(struct keyboard_layout_provider_t *klp,
 		const char* payload) {
