@@ -130,6 +130,9 @@ static uint32_t render_badges(cairo_t *cairo,
 		}
 
 		x_offset = get_badge_x_offset(B, i);
+		if(x_offset >= 1.0) {
+			continue;
+		}
 
 		struct badge_t badge;
 		badge.text = text;

@@ -74,7 +74,7 @@ static int update_badge_animinfo(struct badge_animinfo_t *a, double dt) {
 
 	if(!a->should_be_visible && a->visible_ratio > 0) {
 		a->visible_ratio -= SLIDE_OUT_SPEED * dt;
-		if(a->visible_ratio > 0) a->visible_ratio = 0;
+		if(a->visible_ratio < 0) a->visible_ratio = 0;
 		return 1;
 	}
 
