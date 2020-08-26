@@ -6,16 +6,24 @@
 #include <string.h>
 #include "swaybar/badges.h"
 #include "swaybar/badges_internal.h"
+#include "log.h"
 
 #define SLIDE_IN_SPEED  (0.75f)
 #define SLIDE_OUT_SPEED (1.0f)
 
-#define MAX_BADGE_COUNT (8)
+#define MAX_BADGE_GROUP_COUNT (8)
+#define MAX_BADGE_COUNT (16)
+
+struct badge_group_instance_t {
+	void* user;
+	struct badge_group_t *vtable;
+};
 
 struct badges_t {
 	struct timespec last_update;
 	int animated;
 
+	struct badge_group_instance_t groups[MAX_BADGE_GROUP_COUNT];
 	struct badge_t badges[MAX_BADGE_COUNT];
 };
 
@@ -36,32 +44,24 @@ static double get_elapsed_time(struct timespec* then, struct timespec* now) {
 	return (double)delta_sec + (double)(delta_nsec / 1000000000.0);
 }
 
-void register_badge_class(struct badges_t *B,
-		struct badge_class_t *cls) {
-	if(B == NULL) return;
-	if(cls == NULL) return;
+void register_badge_group(
+		struct badges_t *B,
+		struct badge_group_t *grp) {
+	if(B == NULL || grp == NULL) return;
 
-	// Find free slot
 	int index;
-	for(index = 0; index < MAX_BADGE_COUNT; index++) {
-		if(!B->badges[index].present) {
+	for(index = 0; index < MAX_BADGE_GROUP_COUNT; index++) {
+		if(B->groups[index].vtable == NULL) {
 			break;
 		}
 	}
 
-	if(index < MAX_BADGE_COUNT) {
-		// Found a free slot, initialize it
-		struct badge_t* badge = &B->badges[index];
-		memset(badge, 0, sizeof(struct badge_t));
-		badge->present = 1;
-		
-		badge->anim.should_be_visible = 1;
-		badge->anim.visible_ratio = 0.0f;
-
-		badge->class = *cls;
-		badge->user = NULL;
-
-		cls->setup(badge);
+	if(index < MAX_BADGE_GROUP_COUNT) {
+		struct badge_group_instance_t *group = &B->groups[index];
+		group->vtable = grp;
+		group->user = grp->setup(B);
+	} else {
+		sway_log(SWAY_DEBUG, "Couldn't create new badge group: group table is full\n");
 	}
 }
 
@@ -92,12 +92,20 @@ int update_badges(struct badges_t *b) {
 
 	double dt = get_elapsed_time(&then, &b->last_update);
 
+	// Run group update logic
+	for(int i = 0; i < MAX_BADGE_GROUP_COUNT; i++) {
+		struct badge_group_instance_t *group = &b->groups[i];
+		if(group->vtable != NULL) {
+			group->vtable->update(b, group->user, dt);
+		}
+	}
+
+	// Animate badges
 	b->animated = 0;
 	for(int i = 0; i < MAX_BADGE_COUNT; i++) {
 		struct badge_t *badge = &b->badges[i];
 		if(!badge->present) continue;
 
-		badge->class.update(badge, dt);
 		if(update_badge_animinfo(&badge->anim, dt)) {
 			b->animated = 1;
 		}
@@ -143,11 +151,37 @@ double get_badge_x_offset(struct badges_t *b, int index) {
 	return 1.0f - b->badges[index].anim.visible_ratio;
 }
 
-DECLARE_BADGE_CLASS_REGISTER(datetime);
-DECLARE_BADGE_CLASS_REGISTER(battery);
-DECLARE_BADGE_CLASS_REGISTER(network);
-DECLARE_BADGE_CLASS_REGISTER(kbd_layout);
-DECLARE_BADGE_CLASS_REGISTER(notifications);
+struct badge_t* create_badge(struct badges_t *B) {
+	int index;
+	for(index = 0; index < MAX_BADGE_COUNT; index++) {
+		if(!B->badges[index].present) {
+			break;
+		}
+	}
+
+	if(index < MAX_BADGE_COUNT) {
+		struct badge_t *badge = &B->badges[index];
+		badge->present = 1;
+		badge->user = NULL;
+		badge->text = NULL;
+		return badge;
+	} else {
+		return NULL;
+	}
+}
+
+void destroy_badge(struct badges_t *B, struct badge_t *badge) {
+	badge->present = 0;
+	badge->user = NULL;
+	badge->text = NULL;
+	badge->anim.should_be_visible = 0;
+}
+
+DECLARE_BADGE_GROUP_REGISTER(datetime);
+DECLARE_BADGE_GROUP_REGISTER(battery);
+DECLARE_BADGE_GROUP_REGISTER(network);
+DECLARE_BADGE_GROUP_REGISTER(kbd_layout);
+DECLARE_BADGE_GROUP_REGISTER(notifications);
 
 struct badges_t* create_badges() {
 	void* p = malloc(sizeof(struct badges_t));
@@ -155,13 +189,19 @@ struct badges_t* create_badges() {
 
 	for(int i = 0; i < MAX_BADGE_COUNT; i++) {
 		b->badges[i].present = 0;
+		b->badges[i].anim.should_be_visible = 0;
 	}
 
-	CALL_REGISTER_BADGE_CLASS(datetime, b);
-	CALL_REGISTER_BADGE_CLASS(battery, b);
-	CALL_REGISTER_BADGE_CLASS(network, b);
-	CALL_REGISTER_BADGE_CLASS(kbd_layout, b);
-	CALL_REGISTER_BADGE_CLASS(notifications, b);
+	for(int i = 0; i < MAX_BADGE_GROUP_COUNT; i++) {
+		b->groups[i].user = NULL;
+		b->groups[i].vtable = NULL;
+	}
+
+	CALL_REGISTER_BADGE_GROUP(datetime, b);
+	CALL_REGISTER_BADGE_GROUP(battery, b);
+	CALL_REGISTER_BADGE_GROUP(network, b);
+	CALL_REGISTER_BADGE_GROUP(kbd_layout, b);
+	CALL_REGISTER_BADGE_GROUP(notifications, b);
 
 	b->animated = 0;
 	clock_gettime(CLOCK_MONOTONIC, &b->last_update);

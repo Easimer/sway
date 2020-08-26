@@ -4,42 +4,63 @@
 #include "swaybar/badges.h"
 #include "swaybar/badges_internal.h"
 #include "swaybar/system_info.h"
+#include "log.h"
 
-#define USERLEN (64)
-#define GET_USERDATA() (char*)((b)->user)
+#define group ((struct group_network_t*)user)
 
-static void setup(struct badge_t* b) {
-	b->user = malloc(USERLEN);
+struct group_network_t {
+	struct badge_t *badge;
 
-	b->text = GET_USERDATA();
-	map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-	b->anim.should_be_visible = 1;
+#define STATE_SIZ (64)
+	char state[STATE_SIZ];
+};
+
+static void activate_badge(struct badges_t *B, struct group_network_t *g, enum badge_quality_t quality) {
+	if(g->badge == NULL) {
+		g->badge = create_badge(B);
+		g->badge->text = g->state;
+		map_badge_quality_to_colors(quality, g->badge);
+		g->badge->anim.should_be_visible = 1;
+	}
 }
 
-static void update(struct badge_t* b, double dt) {
+static void deactivate_badge(struct badges_t *B, struct group_network_t *g) {
+	destroy_badge(B, g->badge);
+	g->badge = NULL;
+}
+
+static void update_network_status(struct badges_t *B, struct group_network_t *g) {
 	enum badge_quality_t quality;
-	if(get_network_status(GET_USERDATA(), USERLEN, &quality)) {
-		map_badge_quality_to_colors(quality, b);
-		b->anim.should_be_visible = 1;
+	if(get_network_status(g->state, STATE_SIZ, &quality)) {
+		activate_badge(B, g, quality);
 	} else {
-		map_badge_quality_to_colors(quality, b);
-		b->anim.should_be_visible = 0;
+		deactivate_badge(B, g);
 	}
 }
 
-static void cleanup(struct badge_t* b) {
-	if(b->user != NULL) {
-		free(b->user);
-	}
+static void* setup(struct badges_t *B) {
+	struct group_network_t *g = malloc(sizeof(struct group_network_t));
+
+	g->badge = NULL;
+
+	return g;
 }
 
-static struct badge_class_t class = {
+static void update(struct badges_t *B, void *user, double dt) {
+	update_network_status(B, group);
+}
+
+static void cleanup(struct badges_t *B, void *user) {
+	destroy_badge(B, group->badge);
+	free(group);
+}
+
+static struct badge_group_t _group = {
 	.setup = setup,
 	.update = update,
 	.cleanup = cleanup,
 };
 
-DEFINE_BADGE_CLASS_REGISTER(network) {
-	register_badge_class(B, &class);
+DEFINE_BADGE_GROUP_REGISTER(network) {
+	register_badge_group(B, &_group);
 }
-

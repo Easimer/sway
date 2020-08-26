@@ -4,38 +4,45 @@
 #include "swaybar/badges.h"
 #include "swaybar/badges_internal.h"
 
-#define USERLEN (64)
-#define GET_USERDATA() (char*)((b)->user)
+#define group ((struct group_datetime_t*)user)
 
-static void setup(struct badge_t* b) {
-	b->user = malloc(USERLEN);
+struct group_datetime_t {
+	struct badge_t *badge;
 
-	b->text = GET_USERDATA();
-	map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-	b->anim.should_be_visible = 1;
+#define STATE_SIZ (64)
+	char state[STATE_SIZ];
+};
+
+static void* setup(struct badges_t *B) {
+	struct group_datetime_t *g = malloc(sizeof(struct group_datetime_t));
+	g->badge = create_badge(B);
+
+	g->badge->text = g->state;
+	map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, g->badge);
+	g->badge->anim.should_be_visible = 1;
+
+	return g;
 }
 
-static void update(struct badge_t* b, double dt) {
-	char* buf = GET_USERDATA();
+static void update(struct badges_t *B, void *user, double dt) {
 	struct tm tm;
 	time_t t = time(NULL);
 	localtime_r(&t, &tm);
-	size_t res = strftime(buf, USERLEN - 1, "%D %l:%M%p", &tm);
-	buf[res] = 0;
+	size_t res = strftime(group->state, STATE_SIZ-1, "%D %l:%M%p", &tm);
+	group->state[res] = '\0';
 }
 
-static void cleanup(struct badge_t* b) {
-	if(b->user != NULL) {
-		free(b->user);
-	}
+static void cleanup(struct badges_t *B, void *user) {
+	destroy_badge(B, group->badge);
+	free(group);
 }
 
-static struct badge_class_t class = {
+static struct badge_group_t _group = {
 	.setup = setup,
 	.update = update,
 	.cleanup = cleanup,
 };
 
-DEFINE_BADGE_CLASS_REGISTER(datetime) {
-	register_badge_class(B, &class);
+DEFINE_BADGE_GROUP_REGISTER(datetime) {
+	register_badge_group(B, &_group);
 }

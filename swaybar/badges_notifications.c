@@ -8,6 +8,7 @@
 
 #define GET_USERDATA() (struct notifications_t*)((b)->user)
 #define THIS() ((struct notifications_t*)(user))
+#define group ((struct notifications_t*)user)
 
 #define URG_LOW      (0)
 #define URG_NORMAL   (1)
@@ -77,6 +78,8 @@ static void remove_notification_list_node_at(
 struct notifications_t {
 	sd_bus *bus;
 	sd_bus_slot *slot;
+
+	struct badge_t *badge;
 
 #define BADGE_BUFFER_SIZ (512)
 	char buffer[BADGE_BUFFER_SIZ];
@@ -325,14 +328,9 @@ static const sd_bus_vtable vtable[] = {
 	SD_BUS_VTABLE_END
 };
 
-static void setup(struct badge_t* b) {
+static void* setup(struct badges_t* B) {
 	int r;
-	b->user = malloc(sizeof(struct notifications_t));
-	struct notifications_t *n = GET_USERDATA();
-
-	map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-	b->anim.should_be_visible = 1;
-	b->text = n->buffer;
+	struct notifications_t *n = malloc(sizeof(struct notifications_t));
 
 	n->buffer[0] = '\0';
 	n->bus = NULL;
@@ -367,55 +365,59 @@ static void setup(struct badge_t* b) {
 		goto err_slot;
 	}
 
-	sway_log(SWAY_DEBUG, "done\n");
+	n->badge = create_badge(B);
+	if(n->badge == NULL) {
+		goto err_slot;
+	}
 
-	return;
+	map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, n->badge);
+	n->badge->anim.should_be_visible = 1;
+	n->badge->text = n->buffer;
+
+	return n;
 
 err_slot:
 	sd_bus_slot_unref(n->slot);
 err_bus:
 	sd_bus_unref(n->bus);
 err_end:
-	b->anim.should_be_visible = 0;
-	free(GET_USERDATA());
+	free(n);
+
+	return NULL;
 }
 
-static void update(struct badge_t* b, double dt) {
-	struct notifications_t *n = GET_USERDATA();
+static void update(struct badges_t *B, void *user, double dt) {
 	int r;
+
+	if(user == NULL) return;
 
 	do {
 		// returns 0 if there are no more messages
 		// and a negative value on error
-		r = sd_bus_process(n->bus, NULL);
+		r = sd_bus_process(group->bus, NULL);
 	} while(r > 0);
 
-	tick_notifications(n, dt);
+	tick_notifications(group, dt);
 
-	b->anim.should_be_visible = n->buffer[0] != '\0';
+	group->badge->anim.should_be_visible = (group->buffer[0] != '\0');
 }
 
-static void cleanup(struct badge_t* b) {
-	struct notifications_t *n = GET_USERDATA();
-	if(n != NULL) {
-		if(n->slot != NULL) {
-			sd_bus_slot_unref(n->slot);
-		}
-		if(n->bus != NULL) {
-			sd_bus_unref(n->bus);
-		}
-		free(n);
+static void cleanup(struct badges_t* B, void *user) {
+	if(group->slot != NULL) {
+		sd_bus_slot_unref(group->slot);
 	}
-
-	b->user = NULL;
+	if(group->bus != NULL) {
+		sd_bus_unref(group->bus);
+	}
+	free(group);
 }
 
-static struct badge_class_t class = {
+static struct badge_group_t _group = {
 	.setup = setup,
 	.update = update,
 	.cleanup = cleanup,
 };
 
-DEFINE_BADGE_CLASS_REGISTER(notifications) {
-	register_badge_class(B, &class);
+DEFINE_BADGE_GROUP_REGISTER(notifications) {
+	register_badge_group(B, &_group);
 }

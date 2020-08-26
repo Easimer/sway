@@ -3,34 +3,58 @@
 #include "swaybar/badges.h"
 #include "swaybar/badges_internal.h"
 #include "swaybar/system_info.h"
+#include "log.h"
 
-#define USERLEN (64)
-#define GET_USERDATA() (struct keyboard_layout_provider_t*)((b)->user)
+#define group ((struct group_kbd_layout_t*)user)
 
-static void setup(struct badge_t* b) {
-	b->user = create_keyboard_layout_provider();
-	b->text = get_current_keyboard_layout(GET_USERDATA());
-	map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, b);
-	b->anim.should_be_visible = 1;
+struct group_kbd_layout_t {
+	struct keyboard_layout_provider_t *kbd_layout;
+	struct badge_t *badge;
+
+#define STATE_SIZ (64)
+	char state[STATE_SIZ];
+};
+
+static void* setup(struct badges_t *B) {
+	struct group_kbd_layout_t *g = malloc(sizeof(struct group_kbd_layout_t));
+
+	g->kbd_layout = create_keyboard_layout_provider();
+	if(g->kbd_layout != NULL) {
+		g->badge = create_badge(B);
+		if(g->badge != NULL) {
+			g->badge->text = get_current_keyboard_layout(g->kbd_layout);
+			map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, g->badge);
+			g->badge->anim.should_be_visible = 1;
+		} else {
+			sway_log(SWAY_ERROR, "Couldn't create kbd layout badge!\n");
+		}
+	}
+
+	return g;
 }
 
-static void update(struct badge_t* b, double dt) {
-	b->text = get_current_keyboard_layout(GET_USERDATA());
-}
-
-static void cleanup(struct badge_t* b) {
-	if(b->user != NULL) {
-		destroy_keyboard_layout_provider(GET_USERDATA());
+static void update(struct badges_t *B, void *user, double dt) {
+	if(group->kbd_layout != NULL) {
+		group->badge->text = get_current_keyboard_layout(group->kbd_layout);
 	}
 }
 
-static struct badge_class_t class = {
+static void cleanup(struct badges_t *B, void *user) {
+	if(group->kbd_layout != NULL) {
+		destroy_keyboard_layout_provider(group->kbd_layout);
+	}
+	if(group->badge != NULL) {
+		destroy_badge(B, group->badge);
+	}
+	free(group);
+}
+
+static struct badge_group_t _group = {
 	.setup = setup,
 	.update = update,
 	.cleanup = cleanup,
 };
 
-DEFINE_BADGE_CLASS_REGISTER(kbd_layout) {
-	register_badge_class(B, &class);
+DEFINE_BADGE_GROUP_REGISTER(kbd_layout) {
+	register_badge_group(B, &_group);
 }
-
