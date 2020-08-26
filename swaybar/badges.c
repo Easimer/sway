@@ -164,6 +164,8 @@ struct badge_t* create_badge(struct badges_t *B) {
 		badge->present = 1;
 		badge->user = NULL;
 		badge->text = NULL;
+		badge->anim.should_be_visible = 0;
+		badge->anim.visible_ratio = 0;
 		return badge;
 	} else {
 		return NULL;
@@ -175,6 +177,7 @@ void destroy_badge(struct badges_t *B, struct badge_t *badge) {
 	badge->user = NULL;
 	badge->text = NULL;
 	badge->anim.should_be_visible = 0;
+	badge->anim.visible_ratio = 0;
 }
 
 DECLARE_BADGE_GROUP_REGISTER(datetime);

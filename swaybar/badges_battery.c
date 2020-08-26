@@ -44,6 +44,7 @@ static void update_battery_state(struct group_battery_t *g) {
 static void* setup(struct badges_t *B) {
 	struct group_battery_t *g = malloc(sizeof(struct group_battery_t));
 	int battery_capacity;
+	g->time_since_last_update = UPDATE_INTERVAL_SECS;
 
 	int res = si_get_battery_capacity(&battery_capacity);
 	if(res >= 0) {

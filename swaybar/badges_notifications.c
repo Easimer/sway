@@ -340,6 +340,7 @@ static void* setup(struct badges_t* B) {
 	n->list_permanent = NULL;
 	n->list_expiring = NULL;
 	n->permanent_current = NULL;
+	n->cycle_timer = 0;
 
 	r = sd_bus_open_user(&n->bus);
 	if(r < 0) {
