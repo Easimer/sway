@@ -6,11 +6,14 @@ tray_files = have_tray ? [
 	'tray/watcher.c'
 ] : []
 
+libsystemd = dependency('libsystemd')
+
 swaybar_deps = [
 	cairo,
 	client_protos,
 	gdk_pixbuf,
 	jsonc,
+	libsystemd,
 	math,
 	pango,
 	pangocairo,
@@ -42,6 +45,7 @@ executable(
 		'badges_battery.c',
 		'badges_network.c',
 		'badges_kbd_layout.c',
+		'badges_notifications.c',
 		tray_files
 	],
 	include_directories: [sway_inc],
