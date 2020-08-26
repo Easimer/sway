@@ -85,8 +85,8 @@ void map_badge_quality_to_colors(enum badge_quality_t q, struct badge_t *b) {
 	b->color = badge_quality_palettes[(unsigned)q];
 }
 
-void update_badges(struct badges_t *b) {
-	if(b == NULL) return;
+int update_badges(struct badges_t *b) {
+	if(b == NULL) return 0;
 	struct timespec then = b->last_update;
 	clock_gettime(CLOCK_MONOTONIC, &b->last_update);
 
@@ -102,6 +102,8 @@ void update_badges(struct badges_t *b) {
 			b->animated = 1;
 		}
 	}
+
+	return b->animated;
 }
 
 int get_badges_count(struct badges_t *b) {
@@ -178,9 +180,4 @@ void free_badges(struct badges_t *b) {
 		}
 		free(b);
 	}
-}
-
-int should_fast_redraw(struct badges_t *b) {
-	if(b == NULL) return 0;
-	return b->animated;
 }

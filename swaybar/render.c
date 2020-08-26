@@ -116,8 +116,6 @@ static uint32_t render_badges(cairo_t *cairo,
 
 	struct badges_t* B = output->bar->badges;
 
-	update_badges(B);
-
 	int badge_count = get_badges_count(B);
 	for(int i = 0; i < badge_count; i++) {
 		text = get_badge_text(B, i);
@@ -333,10 +331,6 @@ static void output_frame_handle_done(void *data, struct wl_callback *callback,
 	if (output->dirty) {
 		render_frame(output);
 		output->dirty = false;
-
-		if(should_fast_redraw(output->bar->badges)) {
-			output->dirty = true;
-		}
 	}
 }
 

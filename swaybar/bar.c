@@ -487,6 +487,17 @@ void status_in(int fd, short mask, void *data) {
 	}
 }
 
+void timer_update_badges(void *data) {
+	struct swaybar *bar = data;
+	set_bar_dirty(bar);
+
+	int sleep_time = 1000;
+	if(update_badges(bar->badges)) {
+		sleep_time = 40;
+	}
+	loop_add_timer(bar->eventloop, sleep_time, timer_update_badges, bar);
+}
+
 void bar_run(struct swaybar *bar) {
 	loop_add_fd(bar->eventloop, wl_display_get_fd(bar->display), POLLIN,
 			display_in, bar);
@@ -495,6 +506,9 @@ void bar_run(struct swaybar *bar) {
 		loop_add_fd(bar->eventloop, bar->status->read_fd, POLLIN,
 				status_in, bar);
 	}
+
+	loop_add_timer(bar->eventloop, 20, timer_update_badges, bar);
+
 #if HAVE_TRAY
 	if (bar->tray) {
 		loop_add_fd(bar->eventloop, bar->tray->fd, POLLIN, tray_in, bar->tray->bus);
