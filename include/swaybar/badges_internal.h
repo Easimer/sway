@@ -17,7 +17,7 @@ struct badge_animinfo_t {
 struct badge_t;
 
 typedef void(*badge_setup_t)(struct badge_t*);
-typedef void(*badge_update_t)(struct badge_t*);
+typedef void(*badge_update_t)(struct badge_t*, double dt);
 typedef void(*badge_cleanup_t)(struct badge_t*);
 
 struct badge_class_t {

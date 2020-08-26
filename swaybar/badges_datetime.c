@@ -15,7 +15,7 @@ static void setup(struct badge_t* b) {
 	b->anim.should_be_visible = 1;
 }
 
-static void update(struct badge_t* b) {
+static void update(struct badge_t* b, double dt) {
 	char* buf = GET_USERDATA();
 	struct tm tm;
 	time_t t = time(NULL);

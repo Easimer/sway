@@ -10,7 +10,7 @@
 #define SLIDE_IN_SPEED  (0.75f)
 #define SLIDE_OUT_SPEED (1.0f)
 
-#define MAX_BADGE_COUNT (4)
+#define MAX_BADGE_COUNT (8)
 
 struct badges_t {
 	struct timespec last_update;
@@ -97,7 +97,7 @@ void update_badges(struct badges_t *b) {
 		struct badge_t *badge = &b->badges[i];
 		if(!badge->present) continue;
 
-		badge->class.update(badge);
+		badge->class.update(badge, dt);
 		if(update_badge_animinfo(&badge->anim, dt)) {
 			b->animated = 1;
 		}
@@ -145,6 +145,7 @@ DECLARE_BADGE_CLASS_REGISTER(datetime);
 DECLARE_BADGE_CLASS_REGISTER(battery);
 DECLARE_BADGE_CLASS_REGISTER(network);
 DECLARE_BADGE_CLASS_REGISTER(kbd_layout);
+DECLARE_BADGE_CLASS_REGISTER(notifications);
 
 struct badges_t* create_badges() {
 	void* p = malloc(sizeof(struct badges_t));
@@ -158,6 +159,7 @@ struct badges_t* create_badges() {
 	CALL_REGISTER_BADGE_CLASS(battery, b);
 	CALL_REGISTER_BADGE_CLASS(network, b);
 	CALL_REGISTER_BADGE_CLASS(kbd_layout, b);
+	CALL_REGISTER_BADGE_CLASS(notifications, b);
 
 	b->animated = 0;
 	clock_gettime(CLOCK_MONOTONIC, &b->last_update);

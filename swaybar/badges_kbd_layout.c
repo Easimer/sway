@@ -14,7 +14,7 @@ static void setup(struct badge_t* b) {
 	b->anim.should_be_visible = 1;
 }
 
-static void update(struct badge_t* b) {
+static void update(struct badge_t* b, double dt) {
 	b->text = get_current_keyboard_layout(GET_USERDATA());
 }
 
