@@ -24,6 +24,8 @@ struct notification_t {
 	char app_name[APP_NAME_SIZ];
 #define SUMMARY_SIZ (128)
 	char summary[SUMMARY_SIZ];
+#define BODY_SIZ (128)
+	char body[BODY_SIZ];
 
 	double time_remaining;
 };
@@ -76,7 +78,7 @@ struct notifications_t {
 	sd_bus *bus;
 	sd_bus_slot *slot;
 
-#define BADGE_BUFFER_SIZ (256)
+#define BADGE_BUFFER_SIZ (512)
 	char buffer[BADGE_BUFFER_SIZ];
 
 	// initially 1
@@ -137,8 +139,8 @@ static void tick_notifications(struct notifications_t *n, double dt) {
 	}
 
 	if(noti != NULL) {
-		snprintf(n->buffer, BADGE_BUFFER_SIZ-1, "%s: %s",
-				noti->app_name, noti->summary);
+		snprintf(n->buffer, BADGE_BUFFER_SIZ-1, "%s - %s: %s",
+				noti->app_name, noti->summary, noti->body);
 	} else {
 		n->buffer[0] = 0;
 	}
@@ -153,7 +155,9 @@ static int method_get_capabilities(
 		sd_bus_message *m,
 		void* user,
 		sd_bus_error *ret_err) {
-	return sd_bus_reply_method_return(m, "as", 0);
+	sway_log(SWAY_DEBUG, "GetCapabilities\n");
+	// NOTE: we're lying here
+	return sd_bus_reply_method_return(m, "as", 2, "actions", "body");
 }
 
 #define CHECK_SDBUS_RESULT() \
@@ -176,7 +180,6 @@ static int method_notify(
 
 	uint32_t notification_id;
 
-	sway_log(SWAY_DEBUG, "Notify call\n");
 	r = sd_bus_message_read(m, "susss",
 			&app_name, &replaces_id, &app_icon, &summary, &body);
 	CHECK_SDBUS_RESULT();
@@ -203,6 +206,7 @@ static int method_notify(
 	noti->id = notification_id;
 	strncpy(noti->app_name, app_name, APP_NAME_SIZ-1);
 	strncpy(noti->summary, summary, SUMMARY_SIZ-1);
+	strncpy(noti->body, body, BODY_SIZ-1);
 
 	if(expire_timeout == TIMEOUT_NEVER) {
 		append_notification_list_node(&THIS()->list_permanent, node);
