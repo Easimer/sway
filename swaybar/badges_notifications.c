@@ -160,7 +160,7 @@ static int method_get_capabilities(
 		sd_bus_message *m,
 		void* user,
 		sd_bus_error *ret_err) {
-	sway_log(SWAY_DEBUG, "GetCapabilities\n");
+	sway_log(SWAY_DEBUG, "GetCapabilities");
 	// NOTE: we're lying here
 	return sd_bus_reply_method_return(m, "as", 2, "actions", "body");
 }
@@ -344,7 +344,7 @@ static void* setup(struct badges_t* B) {
 
 	r = sd_bus_open_user(&n->bus);
 	if(r < 0) {
-		sway_log(SWAY_ERROR, "Failed to connect to the user bus, r=%d\n", r);
+		sway_log(SWAY_ERROR, "Failed to connect to the user bus, r=%d", r);
 		goto err_end;
 	}
 
@@ -355,14 +355,14 @@ static void* setup(struct badges_t* B) {
 			n);
 
 	if(r < 0) {
-		sway_log(SWAY_ERROR, "Failed to install object: %s\n", strerror(-r));
+		sway_log(SWAY_ERROR, "Failed to install object: %s", strerror(-r));
 		goto err_bus;
 	}
 
 	r = sd_bus_request_name(n->bus, "org.freedesktop.Notifications", 0);
 
 	if(r < 0) {
-		sway_log(SWAY_ERROR, "Failed to request service name: %s\n", strerror(-r));
+		sway_log(SWAY_ERROR, "Failed to request service name: %s", strerror(-r));
 		goto err_slot;
 	}
 

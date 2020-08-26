@@ -26,7 +26,7 @@ static void* setup(struct badges_t *B) {
 			map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, g->badge);
 			g->badge->anim.should_be_visible = 1;
 		} else {
-			sway_log(SWAY_ERROR, "Couldn't create kbd layout badge!\n");
+			sway_log(SWAY_ERROR, "Couldn't create kbd layout badge!");
 		}
 	}
 

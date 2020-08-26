@@ -61,7 +61,7 @@ void register_badge_group(
 		group->vtable = grp;
 		group->user = grp->setup(B);
 	} else {
-		sway_log(SWAY_DEBUG, "Couldn't create new badge group: group table is full\n");
+		sway_log(SWAY_DEBUG, "Couldn't create new badge group: group table is full");
 	}
 }
 
