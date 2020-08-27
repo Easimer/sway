@@ -102,7 +102,7 @@ struct interface_info_t {
 	};
 };
 
-static int get_interface_info(
+static void get_interface_info(
 		char* ifa_name, struct interface_info_t* interface) {
 	int sock = -1;
 	struct iwreq pwrq;
@@ -121,20 +121,20 @@ static int get_interface_info(
 		interface->vpn_seen = 1;
 #ifndef DONT_FILTER_ZEROTIER_INTERFACE
 		sway_log(SWAY_DEBUG, "Zerotier interface '%s' filtered", ifa_name);
-		return 0;
+		return;
 #endif /* DONT_FILTER_ZEROTIER_INTERFACE */
 	}
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if(sock == -1) {
 		sway_log(SWAY_ERROR, "couldn't open socket");
-		return 0;
+		return;
 	}
 
 	if(ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
 		sway_log(SWAY_ERROR, "SIOCGIFFLAGS failed");
 		close(sock);
-		return 0;
+		return;
 	}
 
 	// Interface must be up, must be running and must not be a loopback
@@ -148,7 +148,7 @@ static int get_interface_info(
 				"Ignoring interface '%s': is up %d, is loopback %d, is running %d",
 				ifa_name, if_up, if_loopback, if_running);
 		close(sock);
-		return 0;
+		return;
 	}
 
 	if(ioctl(sock, SIOCGIWNAME, &pwrq) == -1) {
@@ -161,37 +161,33 @@ static int get_interface_info(
 		ifr.ifr_data = &ecmd;
 		if(ioctl(sock, SIOCETHTOOL, &ifr) >= 0) {
 			interface->present = 1;
-			interface->is_wireless = 0;
-			interface->wired.speed = 0;
+			if(interface->is_wireless) {
+				interface->is_wireless = 0;
+				interface->wired.speed = 0;
+			}
 			interface->rarity = BADGE_QUALITY_NORMAL;
 			sway_log(SWAY_DEBUG, "Found suitable wired interface '%s'\n",
 					ifa_name);
-			switch(ethtool_cmd_speed(&ecmd)) {
-				case SPEED_10:
-					interface->wired.speed = 10;
-					break;
-				case SPEED_100:
-					interface->wired.speed = 100;
-					break;
-				case SPEED_1000:
+
+			int speed = ethtool_cmd_speed(&ecmd);
+			if(speed > interface->wired.speed) {
+				interface->wired.speed = speed;
+				if(speed >= 1000) {
 					interface->rarity = BADGE_QUALITY_GOLD;
-					interface->wired.speed = 1000;
-					break;
-				case SPEED_2500:
-					interface->rarity = BADGE_QUALITY_GOLD;
-					interface->wired.speed = 2500;
-					break;
-				case SPEED_10000:
-					interface->rarity = BADGE_QUALITY_GOLD;
-					interface->wired.speed = 10000;
-					break;
+				}
 			}
 		}
 
 		close(sock);
-		return 1;
 	} else {
 		// Wireless Extensions is present, so it's a wireless interface
+
+		if(interface->present && !interface->is_wireless) {
+			// Already found a wired interface
+			close(sock);
+			return;
+		}
+
 		char essid[IW_ESSID_MAX_SIZE];
 		pwrq.u.essid.pointer = essid;
 		pwrq.u.data.length = IW_ESSID_MAX_SIZE;
@@ -224,7 +220,6 @@ static int get_interface_info(
 		}
 
 		close(sock);
-		return 0;
 	}
 }
 
@@ -251,14 +246,10 @@ int get_network_status(char* buffer, size_t max,
 			continue;
 		}
 
-		int res = get_interface_info(ifa->ifa_name, &interface);
+		get_interface_info(ifa->ifa_name, &interface);
 
 		if(vpn_up != NULL && interface.vpn_seen) {
 			*vpn_up = 1;
-		}
-
-		if(res == 1) {
-			break;
 		}
 	}
 
