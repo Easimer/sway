@@ -95,13 +95,15 @@ struct interface_info_t {
 	int present;
 	int is_wireless;
     enum badge_quality_t rarity;
+	int vpn_seen; // get_interface_info saw a VPN interface
 	union {
 		struct wireless_info_t wireless;
 		struct wired_info_t wired;
 	};
 };
 
-int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
+static int get_interface_info(
+		char* ifa_name, struct interface_info_t* interface) {
 	int sock = -1;
 	struct iwreq pwrq;
 	struct ifreq ifr;
@@ -110,12 +112,27 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 	strncpy(pwrq.ifr_name, ifa_name, IFNAMSIZ-1);
 	strncpy(ifr.ifr_name, ifa_name, IFNAMSIZ-1);
 
+	// Check if this is a ZeroTier interface
+	// TODO: we should do a generic thing that detects any VPN/virtual
+	// interface
+
+	if(strncmp(ifa_name, "zt", 2) == 0) {
+		// Zerotier is not really a VPN but whatever
+		interface->vpn_seen = 1;
+#ifndef DONT_FILTER_ZEROTIER_INTERFACE
+		sway_log(SWAY_DEBUG, "Zerotier interface '%s' filtered", ifa_name);
+		return 0;
+#endif /* DONT_FILTER_ZEROTIER_INTERFACE */
+	}
+
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if(sock == -1) {
+		sway_log(SWAY_ERROR, "couldn't open socket");
 		return 0;
 	}
 
 	if(ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
+		sway_log(SWAY_ERROR, "SIOCGIFFLAGS failed");
 		close(sock);
 		return 0;
 	}
@@ -125,7 +142,11 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 	int if_loopback = ifr.ifr_flags & IFF_LOOPBACK;
 	int if_running = ifr.ifr_flags & IFF_RUNNING;
 
+	sway_log(SWAY_DEBUG, "Interface '%s' flags: %x", ifa_name, ifr.ifr_flags);
 	if(if_loopback || !if_up  || !if_running) {
+		sway_log(SWAY_DEBUG,
+				"Ignoring interface '%s': is up %d, is loopback %d, is running %d",
+				ifa_name, if_up, if_loopback, if_running);
 		close(sock);
 		return 0;
 	}
@@ -143,6 +164,8 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 			interface->is_wireless = 0;
 			interface->wired.speed = 0;
 			interface->rarity = BADGE_QUALITY_NORMAL;
+			sway_log(SWAY_DEBUG, "Found suitable wired interface '%s'\n",
+					ifa_name);
 			switch(ethtool_cmd_speed(&ecmd)) {
 				case SPEED_10:
 					interface->wired.speed = 10;
@@ -175,16 +198,22 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 		pwrq.u.data.flags = 0;
 		memset(essid, 0, IW_ESSID_MAX_SIZE);
 
+		sway_log(SWAY_DEBUG, "Found wireless interface '%s'", ifa_name);
+
 		if(ioctl(sock, SIOCGIWESSID, &pwrq) != -1) {
 			interface->present = 1;
 			interface->is_wireless = 1;
 			strncpy(interface->wireless.ssid, essid, 63);
 			interface->wireless.ssid[63] = 0;
+			sway_log(SWAY_DEBUG, "Wireless interface '%s' connected to '%s'",
+					ifa_name, interface->wireless.ssid);
+		} else {
+			sway_log(SWAY_DEBUG, "SIOCGIWESSID failed on interface '%s'",
+					ifa_name);
 		}
 
+		interface->rarity = BADGE_QUALITY_NORMAL;
 		if(ioctl(sock, SIOCGIWFREQ, &pwrq) != -1) {
-			interface->rarity = BADGE_QUALITY_NORMAL;
-
 			double freq = ((double)pwrq.u.freq.m) * pow(10, pwrq.u.freq.e);
 
 			if(freq / 1000000000 > 2.6) {
@@ -200,9 +229,14 @@ int get_interface_info(char* ifa_name, struct interface_info_t* interface) {
 }
 
 int get_network_status(char* buffer, size_t max,
-		enum badge_quality_t* out_rarity) {
+		enum badge_quality_t* out_rarity, int* vpn_up) {
 	struct ifaddrs *ifaddr, *ifa;
 	struct interface_info_t interface = { 0 };
+
+	interface.vpn_seen = 0;
+	if(vpn_up != NULL) {
+		*vpn_up = 0;
+	}
 
 	if(buffer == NULL || max == 0) {
 		return 0;
@@ -218,6 +252,10 @@ int get_network_status(char* buffer, size_t max,
 		}
 
 		int res = get_interface_info(ifa->ifa_name, &interface);
+
+		if(vpn_up != NULL && interface.vpn_seen) {
+			*vpn_up = 1;
+		}
 
 		if(res == 1) {
 			break;

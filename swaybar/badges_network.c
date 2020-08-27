@@ -10,6 +10,7 @@
 
 struct group_network_t {
 	struct badge_t *badge;
+	struct badge_t *badge_vpn;
 
 #define STATE_SIZ (64)
 	char state[STATE_SIZ];
@@ -18,10 +19,10 @@ struct group_network_t {
 static void activate_badge(struct badges_t *B, struct group_network_t *g, enum badge_quality_t quality) {
 	if(g->badge == NULL) {
 		g->badge = create_badge(B);
-		g->badge->text = g->state;
-		map_badge_quality_to_colors(quality, g->badge);
-		g->badge->anim.should_be_visible = 1;
 	}
+	g->badge->text = g->state;
+	map_badge_quality_to_colors(quality, g->badge);
+	g->badge->anim.should_be_visible = 1;
 }
 
 static void deactivate_badge(struct badges_t *B, struct group_network_t *g) {
@@ -29,12 +30,34 @@ static void deactivate_badge(struct badges_t *B, struct group_network_t *g) {
 	g->badge = NULL;
 }
 
+static void show_vpn_badge(struct badges_t *B, struct group_network_t *g) {
+	if(g->badge_vpn != NULL) return;
+
+	g->badge_vpn = create_badge(B);
+	g->badge_vpn->text = "VPN up";
+	g->badge_vpn->anim.should_be_visible = 1;
+	map_badge_quality_to_colors(BADGE_QUALITY_GOLD, g->badge_vpn);
+}
+
+static void hide_vpn_badge(struct badges_t *B, struct group_network_t *g) {
+	if(g->badge_vpn == NULL) return;
+	destroy_badge(B, g->badge_vpn);
+	g->badge_vpn = NULL;
+}
+
 static void update_network_status(struct badges_t *B, struct group_network_t *g) {
 	enum badge_quality_t quality;
-	if(get_network_status(g->state, STATE_SIZ, &quality)) {
+	int vpn_up = 0;
+	if(get_network_status(g->state, STATE_SIZ, &quality, &vpn_up)) {
 		activate_badge(B, g, quality);
 	} else {
 		deactivate_badge(B, g);
+	}
+
+	if(vpn_up) {
+		show_vpn_badge(B, g);
+	} else {
+		hide_vpn_badge(B, g);
 	}
 }
 
@@ -42,6 +65,7 @@ static void* setup(struct badges_t *B) {
 	struct group_network_t *g = malloc(sizeof(struct group_network_t));
 
 	g->badge = NULL;
+	g->badge_vpn = NULL;
 
 	return g;
 }
