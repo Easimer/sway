@@ -46,7 +46,7 @@ static void update_volume(const struct pa_sink_info *i, void *user) {
 	uint32_t avg = pa_cvolume_avg(&i->volume);
 	sway_log(SWAY_DEBUG, "sink: '%s' vol_avg=%u", i->name, avg);
 
-	if(avg != PA_VOLUME_MUTED) {
+	if(avg != PA_VOLUME_MUTED && i->mute == 0) {
 		double volume = volume_percent(avg);
 		group->volume = volume;
 		int percent_int = (volume * 100);
