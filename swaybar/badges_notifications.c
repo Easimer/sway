@@ -118,6 +118,7 @@ static void tick_notifications(struct notifications_t *n, double dt) {
 		noti->time_remaining -= dt;
 		if(noti->time_remaining <= 0.0) {
 			remove_notification_list_node_at(&n->list_expiring);
+			noti = NULL;
 		}
 	}
 
@@ -144,10 +145,11 @@ static void tick_notifications(struct notifications_t *n, double dt) {
 	}
 
 	if(noti != NULL) {
+		n->badge->anim.should_be_visible = 1;
 		snprintf(n->buffer, BADGE_BUFFER_SIZ-1, "%s - %s: %s",
 				noti->app_name, noti->summary, noti->body);
 	} else {
-		n->buffer[0] = 0;
+		n->badge->anim.should_be_visible = 0;
 	}
 }
 
@@ -189,7 +191,7 @@ static int method_notify(
 			&app_name, &replaces_id, &app_icon, &summary, &body);
 	CHECK_SDBUS_RESULT();
 
-	sway_log(SWAY_DEBUG, "Notification summary: '%s'\n", summary);
+	sway_log(SWAY_DEBUG, "Notification summary: '%s'", summary);
 
 	r = sd_bus_message_skip(m, "as");
 	CHECK_SDBUS_RESULT();
@@ -399,8 +401,6 @@ static void update(struct badges_t *B, void *user, double dt) {
 	} while(r > 0);
 
 	tick_notifications(group, dt);
-
-	group->badge->anim.should_be_visible = (group->buffer[0] != '\0');
 }
 
 static void cleanup(struct badges_t* B, void *user) {

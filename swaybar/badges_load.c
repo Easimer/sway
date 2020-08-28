@@ -43,7 +43,6 @@ static void on_load_update(double load_1min, void *user) {
 		}
 		group->badge->anim.should_be_visible = 1;
 	} else {
-		group->state[0] = '\0';
 		if(group->badge != NULL) {
 			group->badge->anim.should_be_visible = 0;
 		}
