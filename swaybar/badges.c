@@ -9,7 +9,7 @@
 #include "log.h"
 
 #define SLIDE_IN_SPEED  (0.75f)
-#define SLIDE_OUT_SPEED (1.0f)
+#define SLIDE_OUT_SPEED (0.50f)
 
 #define MAX_BADGE_GROUP_COUNT (8)
 #define MAX_BADGE_COUNT (16)
