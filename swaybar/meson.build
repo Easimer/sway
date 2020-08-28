@@ -31,6 +31,12 @@ endif
 
 executable(
 	'swaybar', [
+		'badges.c',
+		'badges_battery.c',
+		'badges_datetime.c',
+		'badges_kbd_layout.c',
+		'badges_network.c',
+		'badges_notifications.c',
 		'bar.c',
 		'config.c',
 		'i3bar.c',
@@ -40,12 +46,6 @@ executable(
 		'render.c',
 		'status_line.c',
 		'system_info.c',
-		'badges.c',
-		'badges_datetime.c',
-		'badges_battery.c',
-		'badges_network.c',
-		'badges_kbd_layout.c',
-		'badges_notifications.c',
 		tray_files
 	],
 	include_directories: [sway_inc],
