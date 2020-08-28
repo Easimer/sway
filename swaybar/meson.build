@@ -7,6 +7,7 @@ tray_files = have_tray ? [
 ] : []
 
 libsystemd = dependency('libsystemd')
+libpulse = dependency('libpulse')
 
 swaybar_deps = [
 	cairo,
