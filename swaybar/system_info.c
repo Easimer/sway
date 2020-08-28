@@ -19,6 +19,13 @@
 #define BATTERY_CAPACITY_PATH "/sys/class/power_supply/BAT%d/capacity"
 #define MAX_BATTERY_IDX (2)
 
+#ifdef SWAYBAR_VERBOSE
+#define sway_log_net(verb, fmt, ...) \
+	_sway_log(verb, "[%s:%d] " fmt, _SWAY_FILENAME, __LINE__, ##__VA_ARGS__)
+#else
+#define sway_log_net(verb, fmt, ...)
+#endif
+
 // Returns 1 if battery exists and capacity is valid
 static int get_battery_capacity_idx(int idx, int* battery_capacity) {
 	char path[128];
@@ -120,7 +127,7 @@ static void get_interface_info(
 		// Zerotier is not really a VPN but whatever
 		interface->vpn_seen = 1;
 #ifndef DONT_FILTER_ZEROTIER_INTERFACE
-		sway_log(SWAY_DEBUG, "Zerotier interface '%s' filtered", ifa_name);
+		sway_log_net(SWAY_DEBUG, "Zerotier interface '%s' filtered", ifa_name);
 		return;
 #endif /* DONT_FILTER_ZEROTIER_INTERFACE */
 	}
@@ -142,9 +149,9 @@ static void get_interface_info(
 	int if_loopback = ifr.ifr_flags & IFF_LOOPBACK;
 	int if_running = ifr.ifr_flags & IFF_RUNNING;
 
-	sway_log(SWAY_DEBUG, "Interface '%s' flags: %x", ifa_name, ifr.ifr_flags);
+	sway_log_net(SWAY_DEBUG, "Interface '%s' flags: %x", ifa_name, ifr.ifr_flags);
 	if(if_loopback || !if_up  || !if_running) {
-		sway_log(SWAY_DEBUG,
+		sway_log_net(SWAY_DEBUG,
 				"Ignoring interface '%s': is up %d, is loopback %d, is running %d",
 				ifa_name, if_up, if_loopback, if_running);
 		close(sock);
@@ -166,7 +173,7 @@ static void get_interface_info(
 				interface->wired.speed = 0;
 			}
 			interface->rarity = BADGE_QUALITY_NORMAL;
-			sway_log(SWAY_DEBUG, "Found suitable wired interface '%s'\n",
+			sway_log_net(SWAY_DEBUG, "Found suitable wired interface '%s'\n",
 					ifa_name);
 
 			int speed = ethtool_cmd_speed(&ecmd);
