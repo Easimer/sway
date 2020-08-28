@@ -38,6 +38,7 @@ executable(
 		'badges_battery.c',
 		'badges_datetime.c',
 		'badges_kbd_layout.c',
+		'badges_load.c',
 		'badges_network.c',
 		'badges_notifications.c',
 		'bar.c',
