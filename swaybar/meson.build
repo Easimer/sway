@@ -14,6 +14,7 @@ swaybar_deps = [
 	client_protos,
 	gdk_pixbuf,
 	jsonc,
+	libpulse,
 	libsystemd,
 	math,
 	pango,
@@ -33,6 +34,7 @@ endif
 executable(
 	'swaybar', [
 		'badges.c',
+		'badges_audio.c',
 		'badges_battery.c',
 		'badges_datetime.c',
 		'badges_kbd_layout.c',
