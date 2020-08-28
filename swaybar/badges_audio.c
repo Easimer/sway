@@ -12,16 +12,11 @@
 
 #define group ((struct group_audio_t*)user)
 
-enum {
-	DEVICE_SINK = 0,
-	DEVICE_SOURCE,
-	DEVICE_MAX
-};
+#define SINK_INDEX_NOT_PRESENT (0xFFFFFFFF)
 
 struct group_audio_t {
 	struct badges_t *B;
 
-	struct badge_t *badge_input;
 	struct badge_t *badge_output;
 
 	pa_threaded_mainloop *pa_loop;
@@ -30,8 +25,6 @@ struct group_audio_t {
 #define SINK_INDICES_SIZ (4)
 	uint32_t sink_indices[SINK_INDICES_SIZ];
 	int sink_counter;
-
-	double volume;
 
 #define OUTPUT_BUFFER_SIZ (128)
 	char output_buffer[OUTPUT_BUFFER_SIZ];
@@ -42,13 +35,11 @@ static double volume_percent(pa_volume_t vol) {
 }
 
 static void update_volume(const struct pa_sink_info *i, void *user) {
-
 	uint32_t avg = pa_cvolume_avg(&i->volume);
 	sway_log(SWAY_DEBUG, "sink: '%s' vol_avg=%u", i->name, avg);
 
 	if(avg != PA_VOLUME_MUTED && i->mute == 0) {
 		double volume = volume_percent(avg);
-		group->volume = volume;
 		int percent_int = (volume * 100);
 		snprintf(group->output_buffer, OUTPUT_BUFFER_SIZ-1, "VOL %d%%", percent_int);
 		map_badge_quality_to_colors(BADGE_QUALITY_NORMAL, group->badge_output);
@@ -72,7 +63,7 @@ static void sink_added(uint32_t index, void *user) {
 	assert(group->sink_counter < SINK_INDICES_SIZ);
 
 	for(int i = 0; i < SINK_INDICES_SIZ; i++) {
-		if(group->sink_indices[i] == 0xFFFFFFFF) {
+		if(group->sink_indices[i] == SINK_INDEX_NOT_PRESENT) {
 			group->sink_indices[i] = index;
 			group->sink_counter++;
 			break;
@@ -92,7 +83,7 @@ static void sink_removed(uint32_t index, void *user) {
 	for(int i = 0; i < SINK_INDICES_SIZ; i++) {
 		if(group->sink_indices[i] == index) {
 			group->sink_counter--;
-			group->sink_indices[i] = 0xFFFFFFFF;
+			group->sink_indices[i] = SINK_INDEX_NOT_PRESENT;
 			break;
 		}
 	}
@@ -104,6 +95,7 @@ static void sink_removed(uint32_t index, void *user) {
 }
 
 static void sink_cb(pa_context *c, const pa_sink_info *i, int eol, void *user) {
+	// eol contains an error code
 	if(eol < 0) {
 		if(pa_context_errno(c) == PA_ERR_NOENTITY) {
 			return;
@@ -113,6 +105,7 @@ static void sink_cb(pa_context *c, const pa_sink_info *i, int eol, void *user) {
 		return;
 	}
 
+	// End of list
 	if(eol > 0) {
 		return;
 	}
@@ -125,7 +118,7 @@ static void sink_cb(pa_context *c, const pa_sink_info *i, int eol, void *user) {
 	update_volume(i, user);
 }
 
-#define SUBSCRIPTION_MASK (pa_subscription_mask_t)(PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)
+#define SUBSCRIPTION_MASK (pa_subscription_mask_t)(PA_SUBSCRIPTION_MASK_SINK)
 
 static void subscribe_cb(pa_context *c, pa_subscription_event_type_t t, uint32_t index, void *user) {
 	pa_operation *o;
@@ -136,7 +129,7 @@ static void subscribe_cb(pa_context *c, pa_subscription_event_type_t t, uint32_t
 				return;
 			}
 			if(!(o = pa_context_get_sink_info_by_index(c, index, sink_cb, user))) {
-				sway_log(SWAY_ERROR, "pa_context-get_sink_info_by_index() failed");
+				sway_log(SWAY_ERROR, "pa_context_get_sink_info_by_index() failed");
 				return;
 			}
 			pa_operation_unref(o);
@@ -213,13 +206,10 @@ static void* setup(struct badges_t *B) {
 	struct group_audio_t *g = malloc(sizeof(struct group_audio_t));
 
 	g->B = B;
-
-	g->badge_input = NULL;
-
 	g->badge_output = NULL;
 	g->output_buffer[0] = '\0';
 	for(int i = 0; i < SINK_INDICES_SIZ; i++) {
-		g->sink_indices[i] = 0xFFFFFFFF;
+		g->sink_indices[i] = SINK_INDEX_NOT_PRESENT;
 	}
 	g->sink_counter = 0;
 
@@ -241,7 +231,6 @@ static void cleanup(struct badges_t *B, void *user) {
 		pa_context_unref(group->ctx);
 	}
 
-	destroy_badge(B, group->badge_input);
 	destroy_badge(B, group->badge_output);
 	free(group);
 }
@@ -253,5 +242,7 @@ static struct badge_group_t _group = {
 };
 
 DEFINE_BADGE_GROUP_REGISTER(audio) {
+#ifndef BADGES_DISABLE_AUDIO
 	register_badge_group(B, &_group);
+#endif
 }
