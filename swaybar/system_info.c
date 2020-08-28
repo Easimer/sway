@@ -201,14 +201,14 @@ static void get_interface_info(
 		pwrq.u.data.flags = 0;
 		memset(essid, 0, IW_ESSID_MAX_SIZE);
 
-		sway_log(SWAY_DEBUG, "Found wireless interface '%s'", ifa_name);
+		sway_log_net(SWAY_DEBUG, "Found wireless interface '%s'", ifa_name);
 
 		if(ioctl(sock, SIOCGIWESSID, &pwrq) != -1) {
 			interface->present = 1;
 			interface->is_wireless = 1;
 			strncpy(interface->wireless.ssid, essid, 63);
 			interface->wireless.ssid[63] = 0;
-			sway_log(SWAY_DEBUG, "Wireless interface '%s' connected to '%s'",
+			sway_log_net(SWAY_DEBUG, "Wireless interface '%s' connected to '%s'",
 					ifa_name, interface->wireless.ssid);
 		} else {
 			sway_log(SWAY_DEBUG, "SIOCGIWESSID failed on interface '%s'",
