@@ -217,7 +217,7 @@ static void* setup(struct badges_t *B) {
 	}
 
 	rc = sd_bus_add_object_vtable(group->bus, &group->slot,
-			"/net/easimer/swaybar/Badges/BadgeGroup1",
+			"/net/easimer/swaybar/badges/BadgeGroup1",
 			"net.easimer.swaybar.badges.BadgeGroup1",
 			vtable_group, group);
 
