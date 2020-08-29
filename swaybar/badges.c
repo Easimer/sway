@@ -188,6 +188,7 @@ DECLARE_BADGE_GROUP_REGISTER(network);
 DECLARE_BADGE_GROUP_REGISTER(kbd_layout);
 DECLARE_BADGE_GROUP_REGISTER(audio);
 DECLARE_BADGE_GROUP_REGISTER(load);
+DECLARE_BADGE_GROUP_REGISTER(dbus);
 DECLARE_BADGE_GROUP_REGISTER(notifications);
 
 struct badges_t* create_badges() {
@@ -210,6 +211,7 @@ struct badges_t* create_badges() {
 	CALL_REGISTER_BADGE_GROUP(kbd_layout, b);
 	CALL_REGISTER_BADGE_GROUP(audio, b);
 	CALL_REGISTER_BADGE_GROUP(load, b);
+	CALL_REGISTER_BADGE_GROUP(dbus, b);
 	CALL_REGISTER_BADGE_GROUP(notifications, b);
 
 	b->animated = 0;

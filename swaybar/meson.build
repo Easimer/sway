@@ -37,6 +37,7 @@ executable(
 		'badges_audio.c',
 		'badges_battery.c',
 		'badges_datetime.c',
+		'badges_dbus.c',
 		'badges_kbd_layout.c',
 		'badges_load.c',
 		'badges_network.c',

@@ -75,9 +75,13 @@ static void remove_notification_list_node_at(
 	}
 }
 
+struct dbus_group_t;
+
 struct notifications_t {
 	sd_bus *bus;
 	sd_bus_slot *slot;
+
+	struct dbus_group_t *proxy;
 
 	struct badge_t *badge;
 
@@ -381,8 +385,10 @@ static void* setup(struct badges_t* B) {
 
 err_slot:
 	sd_bus_slot_unref(n->slot);
+	n->slot = NULL;
 err_bus:
 	sd_bus_unref(n->bus);
+	n->bus = NULL;
 err_end:
 	free(n);
 
