@@ -5,6 +5,19 @@
 #include "swaybar/badges_internal.h"
 #include "log.h"
 
+/*
+ * External programs can create their own badges through using the
+ * /net/easimer/swaybar/badges/BadgeGroup1 object available on the
+ * net.easimer.swaybar.Badges service.
+ *
+ * The badges themselves can be managed using a proxy object created
+ * through the aforementioned interface. This object has the type of
+ * 'net.easimer.swaybar.badges.Badge1'.
+ *
+ * The documentation of these interfaces can be found in the
+ * 'dbus-1/interfaces/' directory.
+ */
+
 #define group ((struct dbus_group_t*)user)
 #define this_badge ((struct dbus_badge_t*)user)
 
@@ -29,11 +42,11 @@ struct dbus_group_t {
 #define BADGE_PATH_FMT "/net/easimer/swaybar/Badges/%d"
 
 static sd_bus_error g_err_enospc =
-SD_BUS_ERROR_MAKE_CONST("net.easimer.swaybar.Badges.ENOSPC", "Out of space");
+SD_BUS_ERROR_MAKE_CONST("net.easimer.swaybar.badges.ENOSPC", "Out of space");
 static sd_bus_error g_err_einval =
-SD_BUS_ERROR_MAKE_CONST("net.easimer.swaybar.Badges.EINVAL", "Argument is out of range");
+SD_BUS_ERROR_MAKE_CONST("net.easimer.swaybar.badges.EINVAL", "Argument is out of range");
 static sd_bus_error g_err_enoent =
-SD_BUS_ERROR_MAKE_CONST("net.easimer.swaybar.Badges.ENOENT", "No such entity");
+SD_BUS_ERROR_MAKE_CONST("net.easimer.swaybar.badges.ENOENT", "No such entity");
 
 static int method_badge_set_visible(
 		sd_bus_message *m, void *user, sd_bus_error *ret_err) {
@@ -116,7 +129,7 @@ static int create_dbus_badge_proxy(char* path_buffer, size_t max, void *user) {
 
 	rc = sd_bus_add_object_vtable(group->bus, &badge->slot,
 			path_buffer,
-			"net.easimer.swaybar.badges.Badge",
+			"net.easimer.swaybar.badges.Badge1",
 			vtable_badge, badge);
 
 	if(rc < 0) {
@@ -190,7 +203,6 @@ static const sd_bus_vtable vtable_group[] = {
 	SD_BUS_VTABLE_END
 };
 
-
 static void* setup(struct badges_t *B) {
 	int rc;
 	struct dbus_group_t *user = malloc(sizeof(struct dbus_group_t));
@@ -205,8 +217,8 @@ static void* setup(struct badges_t *B) {
 	}
 
 	rc = sd_bus_add_object_vtable(group->bus, &group->slot,
-			"/net/easimer/swaybar/Badges/BadgeGroup",
-			"net.easimer.swaybar.badges.BadgeGroup",
+			"/net/easimer/swaybar/Badges/BadgeGroup1",
+			"net.easimer.swaybar.badges.BadgeGroup1",
 			vtable_group, group);
 
 	if(rc < 0) {

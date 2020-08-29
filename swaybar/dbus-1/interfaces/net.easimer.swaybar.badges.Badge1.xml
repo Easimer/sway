@@ -1,0 +1,42 @@
+<!DOCTYPE node PUBLIC
+	"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+	"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
+	<interface name="net.easimer.swaybar.badges.Badge">
+		<method name="SetVisible">
+			<arg name="visible" direction="in" type="b" />
+		</method>
+		<!--
+			SetText:
+			@text: Badge text
+
+			Sets the text displayed on the badge.
+
+			Implementations may truncate the text if it's too long.
+		-->
+		<method name="SetText">
+			<arg name="text" direction="in" type="s" />
+		</method>
+		<!--
+			SetQuality:
+			@quality: Quality of this badge
+
+			Sets the quality of this badge. This value determines
+			the colors in which the badge will be shown.
+			Valid values are:
+			0 - Normal (blue)
+			1 - Error (red)
+			2 - Gold (gold)
+
+			These values could also be interpreted as importance of a badge.
+			For example, a battery indicator badge could be red when the battery
+			is low and blue otherwise.
+
+			If @quality is out of the range of these values, a
+			#net.easimer.swaybar.badges.EINVAL error is returned.
+		--> 
+		<method name="SetQuality">
+			<arg name="quality" direction="in" type="i" />
+		</method>
+	</interface>
+</node>

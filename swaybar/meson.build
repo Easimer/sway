@@ -58,3 +58,11 @@ executable(
 	link_with: [lib_sway_common, lib_sway_client],
 	install: true
 )
+
+dbus_interface_defs = files(
+	'dbus-1/interfaces/net.easimer.swaybar.badges.BadgeGroup1.xml',
+	'dbus-1/interfaces/net.easimer.swaybar.badges.Badge1.xml',
+)
+
+dbus_interface_defs_installdir = join_paths(datadir, 'dbus-1', 'interfaces')
+install_data(dbus_interface_defs, install_dir: dbus_interface_defs_installdir)
