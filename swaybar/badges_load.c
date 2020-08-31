@@ -16,6 +16,12 @@
 #define PATH_THERMAL_TEMP "/sys/class/thermal/thermal_zone%d/temp"
 #define group ((struct group_load_t*)user)
 
+struct samples_t {
+#define SAMPLES_VALUES_SIZ (64)
+	double values[SAMPLES_VALUES_SIZ];
+	int cursor;
+};
+
 struct group_load_t {
 	struct badges_t *B;
 	struct badge_t *badge;
@@ -25,7 +31,31 @@ struct group_load_t {
 	char state[STATE_SIZ];
 #define TEMPERATURE_SIZ (32)
 	char temperature[TEMPERATURE_SIZ];
+
+	struct samples_t cpu_temp_samples;
 };
+
+static void init_samples(struct samples_t *samples, double initial_value) {
+	samples->cursor = 0;
+	for(int i = 0; i < SAMPLES_VALUES_SIZ; i++) {
+		samples->values[i] = initial_value;
+	}
+}
+
+static void append_sample(struct samples_t *samples, double sample) {
+	samples->values[samples->cursor] = sample;
+	samples->cursor = (samples->cursor + 1) % SAMPLES_VALUES_SIZ;
+}
+
+static double get_sample_average(struct samples_t *samples) {
+	double ret = 0;
+
+	for(int i = 0; i < SAMPLES_VALUES_SIZ; i++) {
+		ret += samples->values[i];
+	}
+
+	return ret / (double)SAMPLES_VALUES_SIZ;
+}
 
 static void on_load_update(double load_1min, void *user) {
 	if(load_1min > LOAD_THRESHOLD_NOTEWORTHY) {
@@ -136,6 +166,8 @@ static int get_system_temperature(double *temp) {
 static void update_system_temperature(void *user) {
 	double temp;
 	if(get_system_temperature(&temp)) {
+		append_sample(&group->cpu_temp_samples, temp);
+		temp = get_sample_average(&group->cpu_temp_samples);
 		snprintf(group->temperature, TEMPERATURE_SIZ-1, "CPU %.1f°C", temp);
 
 		if(group->badge_temp == NULL) {
@@ -162,6 +194,13 @@ static void* setup(struct badges_t *B) {
 	struct group_load_t *g = malloc(sizeof(struct group_load_t));
 	memset(g, 0, sizeof(struct group_load_t));
 	g->B = B;
+
+	double temp;
+	if(get_system_temperature(&temp)) {
+		init_samples(&g->cpu_temp_samples, temp);
+	} else {
+		init_samples(&g->cpu_temp_samples, 30.0);
+	}
 	return g;
 }
 
