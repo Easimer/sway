@@ -11,6 +11,8 @@ struct palette_t {
 
 struct badge_animinfo_t {
 	int should_be_visible;
+
+	double t;
 	double visible_ratio;
 };
 

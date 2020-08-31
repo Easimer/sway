@@ -9,7 +9,7 @@
 #include "log.h"
 
 #define SLIDE_IN_SPEED  (0.75f)
-#define SLIDE_OUT_SPEED (0.50f)
+#define SLIDE_OUT_SPEED (0.35f)
 
 #define MAX_BADGE_GROUP_COUNT (8)
 #define MAX_BADGE_COUNT (16)
@@ -65,16 +65,28 @@ void register_badge_group(
 	}
 }
 
-static int update_badge_animinfo(struct badge_animinfo_t *a, double dt) {
-	if(a->should_be_visible && a->visible_ratio < 1) {
-		a->visible_ratio += SLIDE_IN_SPEED * dt;
-		if(a->visible_ratio > 1) a->visible_ratio = 1;
-		return 1;
-	}
+static double cubic_bezier(double t,
+		double p0, double p1, double p2, double p3) {
+	double inv1 = 1 - t;
+	double inv2 = inv1 * inv1;
+	double inv3 = inv2 * inv1;
+	double t1 = t;
+	double t2 = t1 * t1;
+	double t3 = t2 * t1;
 
-	if(!a->should_be_visible && a->visible_ratio > 0) {
-		a->visible_ratio -= SLIDE_OUT_SPEED * dt;
-		if(a->visible_ratio < 0) a->visible_ratio = 0;
+	return inv3 * p0 + 3 * inv2 * t * p1 + 3 * inv1 * t2 * p2 + t3 * p3;
+}
+
+static int update_badge_animinfo(struct badge_animinfo_t *a, double dt) {
+	if(a->should_be_visible && a->t < 1) {
+		a->t += SLIDE_IN_SPEED * dt;
+		if(a->t > 1) a->t = 1;
+		a->visible_ratio = cubic_bezier(a->t, 0.42, 0, 1.0, 1.0);
+		return 1;
+	} else if(!a->should_be_visible && a->t > 0) {
+		a->t -= SLIDE_OUT_SPEED * dt;
+		if(a->t < 0) a->t = 0;
+		a->visible_ratio = cubic_bezier(a->t, 0, 0, 0.58, 1.0);
 		return 1;
 	}
 
