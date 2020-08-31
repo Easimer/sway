@@ -177,6 +177,30 @@ static int method_get_capabilities(
 		return r; \
 	}
 
+// strlcpy implementation that strips HTML tags from the source string
+static void strlcpy_strip_html(char *dst, const char *src, size_t dst_siz) {
+	int level = 0;
+	size_t dst_cursor = 0;
+	size_t dst_cursor_max = dst_siz - 1;
+
+	while(dst_cursor < dst_cursor_max && (*src != '\0')) {
+		if(*src == '<') {
+			level++;
+		}
+		if(level == 0) {
+			dst[dst_cursor] = *src;
+			dst_cursor++;
+		} else {
+			if(*src == '>') {
+				level--;
+			}
+		}
+		src++;
+	}
+
+	dst[dst_cursor] = '\0';
+}
+
 static int method_notify(
 		sd_bus_message *m,
 		void* user,
@@ -215,9 +239,9 @@ static int method_notify(
 	struct notification_list_t *node = create_notification_list_node();
 	struct notification_t *noti = &node->data;
 	noti->id = notification_id;
-	strncpy(noti->app_name, app_name, APP_NAME_SIZ-1);
-	strncpy(noti->summary, summary, SUMMARY_SIZ-1);
-	strncpy(noti->body, body, BODY_SIZ-1);
+	strlcpy_strip_html(noti->app_name, app_name, APP_NAME_SIZ-1);
+	strlcpy_strip_html(noti->summary, summary, SUMMARY_SIZ-1);
+	strlcpy_strip_html(noti->body, body, BODY_SIZ-1);
 
 	if(expire_timeout == TIMEOUT_NEVER) {
 		append_notification_list_node(&THIS()->list_permanent, node);
