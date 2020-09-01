@@ -178,6 +178,7 @@ struct badge_t* create_badge(struct badges_t *B) {
 		badge->text = NULL;
 		badge->anim.should_be_visible = 0;
 		badge->anim.visible_ratio = 0;
+		badge->anim.t = 0;
 		return badge;
 	} else {
 		return NULL;
