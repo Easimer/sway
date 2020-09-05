@@ -347,12 +347,28 @@ static int method_get_server_information(
 			g_server_version, g_server_spec_version);
 }
 
+static int method_pop_top(
+		sd_bus_message *m,
+		void *user,
+		sd_bus_error *ret_err) {
+	if(THIS()->list_permanent != NULL) {
+		if(THIS()->permanent_current == THIS()->list_permanent) {
+			THIS()->permanent_current = NULL;
+		}
+		remove_notification_list_node_at(&(THIS()->list_permanent));
+		tick_notifications(THIS(), 0.001);
+	}
+
+	return sd_bus_reply_method_return(m, "");
+}
+
 static const sd_bus_vtable vtable[] = {
 	SD_BUS_VTABLE_START(0),
 	SD_BUS_METHOD("CloseNotification", "u", "", method_close_notification, 0),
 	SD_BUS_METHOD("GetCapabilities", "", "as", method_get_capabilities, 0),
 	SD_BUS_METHOD("GetServerInformation", "", "ssss", method_get_server_information, 0),
 	SD_BUS_METHOD("Notify", "susssasa{sv}i", "u", method_notify, 0),
+	SD_BUS_METHOD("PopTopNotification", "", "", method_pop_top, 0),
 	SD_BUS_SIGNAL("ActionInvoked", "us", 0),
 	SD_BUS_SIGNAL("NotificationClosed", "uu", 0),
 	SD_BUS_VTABLE_END
@@ -386,6 +402,17 @@ static void* setup(struct badges_t* B) {
 
 	if(r < 0) {
 		sway_log(SWAY_ERROR, "Failed to install object: %s", strerror(-r));
+		goto err_bus;
+	}
+
+	r = sd_bus_add_object_vtable(n->bus, &n->slot,
+			"/net/easimer/swaybar/Notifications1",
+			"net.easimer.swaybar.Notifications1",
+			vtable,
+			n);
+
+	if(r < 0) {
+		sway_log(SWAY_ERROR, "Failed to add vtable to object: %s", strerror(-r));
 		goto err_bus;
 	}
 
