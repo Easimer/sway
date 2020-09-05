@@ -120,16 +120,18 @@ static void get_interface_info(
 	strncpy(ifr.ifr_name, ifa_name, IFNAMSIZ-1);
 
 	// Check if this is a ZeroTier interface
-	// TODO: we should do a generic thing that detects any VPN/virtual
-	// interface
-
 	if(strncmp(ifa_name, "zt", 2) == 0) {
-		// Zerotier is not really a VPN but whatever
-		interface->vpn_seen = 1;
 #ifndef DONT_FILTER_ZEROTIER_INTERFACE
 		sway_log_net(SWAY_DEBUG, "Zerotier interface '%s' filtered", ifa_name);
 		return;
 #endif /* DONT_FILTER_ZEROTIER_INTERFACE */
+	}
+
+	if((strncmp(ifa_name, "tun", 3) == 0) ||
+			(strncmp(ifa_name, "tap", 3) == 0)) {
+		interface->vpn_seen = 1;
+		sway_log_net(SWAY_DEBUG, "VPN interface '%s' detected", ifa_name);
+		return;
 	}
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -249,7 +251,13 @@ int get_network_status(char* buffer, size_t max,
 	}
 
 	for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-		if(ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_PACKET) {
+		// Commented out because this check fails for tun/tap interfaces
+		// TODO: Why did we do this check here?
+		//if(ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_PACKET) {
+			//continue;
+		//}
+
+		if(ifa->ifa_name == NULL) {
 			continue;
 		}
 
