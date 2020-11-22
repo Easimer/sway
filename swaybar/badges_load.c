@@ -8,8 +8,8 @@
 #include "swaybar/badges_internal.h"
 #include "log.h"
 
-#define LOAD_THRESHOLD_NOTEWORTHY (0.6)
-#define LOAD_THRESHOLD_HIGH (1.0)
+#define LOAD_THRESHOLD_NOTEWORTHY (1.25)
+#define LOAD_THRESHOLD_HIGH (2.0)
 #define TEMP_THRESHOLD_WARM (50.0)
 #define TEMP_THRESHOLD_HOT (75.0)
 #define PATH_THERMAL_TYPE "/sys/class/thermal/thermal_zone%d/type"
